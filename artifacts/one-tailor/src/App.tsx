@@ -7,6 +7,7 @@ import AppShell from "@/components/layout/AppShell";
 import SplashScreen from "@/components/SplashScreen";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import { useSearch } from "@/hooks/use-search";
+import { getDeviceId } from "@/lib/utils";
 
 const Home                        = lazy(() => import("@/pages/Home"));
 const AllTools                    = lazy(() => import("@/pages/AllTools"));
@@ -98,8 +99,17 @@ function App() {
   const setAppName     = useAppStore((s) => s.setAppName);
   const setAppLogo     = useAppStore((s) => s.setAppLogo);
   const setSplashImage = useAppStore((s) => s.setSplashImage);
+  const setDeviceId    = useAppStore((s) => s.setDeviceId);
   const [showSplash, setShowSplash] = useState(true);
   const handleSplashDone = useCallback(() => setShowSplash(false), []);
+
+  // On startup: ensure deviceId is always initialised from localStorage (or generated).
+  // This must run before any other effect that depends on deviceId.
+  useEffect(() => {
+    if (!deviceId) {
+      setDeviceId(getDeviceId());
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // On startup: re-validate account session from JWT if one is stored.
   // This restores premium silently on every app open — no manual login needed.

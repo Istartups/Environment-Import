@@ -109,14 +109,15 @@ export default function Home() {
   const [totalMeasurements,    setTotalMeasurements]    = useState<number | null>(null);
 
   useEffect(() => {
-    if (!deviceId) return;
-    fetch(`/api/tailoring/measurements/recent?deviceId=${deviceId}&limit=9999`)
+    const did = deviceId || getDeviceId();
+    if (!did) return;
+    fetch(`/api/tailoring/measurements/recent?deviceId=${did}&limit=9999`)
       .then(r => r.ok ? r.json() : [])
       .then((data: RecentMeasurement[]) => {
         setRecentMeasurements(data.slice(0, 8));
         setTotalMeasurements(data.length);
       })
-      .catch(() => {});
+      .catch(() => setTotalMeasurements(0));
   }, [deviceId]);
 
   useEffect(() => {
