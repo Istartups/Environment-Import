@@ -19,15 +19,15 @@ const PREMIUM_FEATURES = [
 
 export function UsageLockScreen({ isOpen }: UsageLockScreenProps) {
   const [, setLocation] = useLocation();
-  const proUpgradeTitle      = useAppStore(s => s.proUpgradeTitle);
-  const proUpgradeMessage    = useAppStore(s => s.proUpgradeMessage);
-  const proUpgradeButtonText = useAppStore(s => s.proUpgradeButtonText);
+  const freeUpgradeTitle   = useAppStore(s => s.freeUpgradeTitle);
+  const freeUpgradeMessage = useAppStore(s => s.freeUpgradeMessage);
+  const freeUpgradeCTA     = useAppStore(s => s.freeUpgradeCTA);
 
   if (!isOpen) return null;
 
-  const heading = proUpgradeTitle || "Unlock Premium";
-  const subtext = proUpgradeMessage || "You've done amazing work! To keep growing your business and accessing these tools without limits, let's take the next step together.";
-  const ctaText = proUpgradeButtonText || "Unlock Premium Now";
+  const heading = freeUpgradeTitle || "Unlock Premium";
+  const subtext = freeUpgradeMessage || "You've done amazing work! To keep growing your business and accessing these tools without limits, let's take the next step together.";
+  const ctaText = freeUpgradeCTA || "Unlock Premium Now";
 
   return (
     <AnimatePresence>

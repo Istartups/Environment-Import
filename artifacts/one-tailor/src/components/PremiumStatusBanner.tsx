@@ -19,7 +19,7 @@ const DEFAULTS = {
     bg: "rgba(245,158,11,0.08)",
     border: "rgba(245,158,11,0.25)",
     label: "Complete Your Upgrade",
-    message: "You're one step away from unlocking the full power of OneTailor Pro! ⭐",
+    message: "You're one step away from unlocking the full power of OneTailor Premium! ⭐",
     next: "Tap below to finish your payment and activate your premium tools.",
     action: "Finish Upgrade — Resume Now" as string | null,
   },

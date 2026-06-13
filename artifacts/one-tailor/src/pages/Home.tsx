@@ -248,8 +248,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Premium Status Popup */}
-      {showProPopup && (
+      {/* Premium Status Popup — Pro upsell, visible to premium users only */}
+      {isPremium && showProPopup && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-card w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl border border-primary/20 animate-in zoom-in-95 duration-200">
             <div className="p-4 flex items-center justify-between border-b border-border bg-muted/20">
