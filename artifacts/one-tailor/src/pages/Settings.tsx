@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
-  Moon, Sun, MessageCircle, Mail, Smartphone,
-  Globe, FileText, HelpCircle, Heart, ExternalLink, ChevronLeft,
+  Moon, Sun, Palette,
+  Globe, FileText, HelpCircle, Heart, ExternalLink, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAppStore } from "@/store/useAppStore";
@@ -111,7 +111,7 @@ function BackupTab({
 
 export default function Settings() {
   const [, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState<"currency" | "display" | "messages" | "backup" | "about">("currency");
+  const [activeTab, setActiveTab] = useState<"currency" | "display" | "backup" | "about">("currency");
   const [customSymbol, setCustomSymbol] = useState("");
   const [customCode, setCustomCode] = useState("");
 
@@ -121,8 +121,6 @@ export default function Settings() {
   const currencyCode    = useAppStore((s) => s.currencyCode);
   const setCurrency     = useAppStore((s) => s.setCurrency);
   const isPremium       = useAppStore((s) => s.isPremium);
-  const businessProfile = useAppStore((s) => s.businessProfile);
-  const appName         = useAppStore((s) => s.appName);
   const { toast }       = useToast();
 
   const addCustomCurrency = () => {
@@ -136,7 +134,6 @@ export default function Settings() {
   const TABS = [
     { id: "currency",  label: "Currency" },
     { id: "display",   label: "Display" },
-    { id: "messages",  label: "Messages" },
     { id: "backup",    label: "Backup" },
     { id: "about",     label: "About" },
   ] as const;
@@ -170,6 +167,13 @@ export default function Settings() {
             {t.label}
           </button>
         ))}
+        <button
+          onClick={() => setLocation("/brand-kit")}
+          className="shrink-0 px-4 py-2 rounded-xl text-[11px] font-bold border transition-all bg-card border-border text-muted-foreground flex items-center gap-1"
+        >
+          <Palette size={11} />
+          Brand Kit
+        </button>
       </div>
 
       <div>
@@ -244,59 +248,7 @@ export default function Settings() {
           </div>
         )}
 
-        {/* 3. MESSAGES TAB */}
-        {activeTab === "messages" && (
-          <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            {["WhatsApp", "Email", "SMS"].map((type) => (
-              <div key={type} className="bg-card border border-border rounded-3xl overflow-hidden">
-                <div className="p-4 border-b border-border bg-muted/20 flex items-center gap-3">
-                  {type === "WhatsApp" ? <MessageCircle size={16} className="text-green-500" /> : type === "Email" ? <Mail size={16} className="text-blue-500" /> : <Smartphone size={16} className="text-purple-500" />}
-                  <div>
-                    <p className="text-xs font-black">{type} Templates</p>
-                    <p className="text-[9px] text-muted-foreground font-medium">Pre-filled message templates</p>
-                  </div>
-                </div>
-                <div className="p-4 space-y-3">
-                  {[
-                    type === "WhatsApp" ? [
-                      { name: "Order Ready", text: `Hello! Your order is ready for pickup. Thank you for choosing ${businessProfile?.name || appName || "us"}! 🙏` },
-                      { name: "Reminder", text: `Hi! Just a reminder about your appointment with ${businessProfile?.name || appName || "us"}. Please confirm. 😊` },
-                    ] : type === "Email" ? [
-                      { name: "Order Ready", subject: "Your Order is Ready!", body: `Dear Customer,\n\nYour order is ready for pickup.\n\nKind regards,\n${businessProfile?.name || appName || "OneTailor"}` },
-                      { name: "Payment Received", subject: "Payment Received", body: `Dear Customer,\n\nWe've received your payment. Thank you!\n\nKind regards,\n${businessProfile?.name || appName || "OneTailor"}` },
-                    ] : [
-                      { name: "Order Ready", text: "Your order is ready! Please come pick it up. Thank you for choosing us!" },
-                      { name: "Reminder", text: "Reminder: Your appointment is coming up. Please confirm or call to reschedule." },
-                    ]
-                  ].map((tpl: any, i: number) => (
-                    <div key={i} className="bg-muted/30 rounded-2xl p-4 space-y-2.5">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{tpl.name}</p>
-                      {tpl.subject && <p className="text-[10px] font-bold text-muted-foreground">Subject: {tpl.subject}</p>}
-                      <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">{tpl.text || tpl.body}</p>
-                      <button
-                        onClick={() => {
-                          if (type === "WhatsApp") window.open(`https://wa.me/?text=${encodeURIComponent(tpl.text)}`, '_blank');
-                          else if (type === "Email") window.open(`mailto:?subject=${encodeURIComponent(tpl.subject || "")}&body=${encodeURIComponent(tpl.body)}`, '_blank');
-                          else window.open(`sms:?body=${encodeURIComponent(tpl.text)}`);
-                        }}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all active:scale-95 ${
-                          type === "WhatsApp" ? "bg-green-500/10 hover:bg-green-500/20 text-green-600" :
-                          type === "Email" ? "bg-blue-500/10 hover:bg-blue-500/20 text-blue-600" :
-                          "bg-purple-500/10 hover:bg-purple-500/20 text-purple-600"
-                        }`}
-                      >
-                        {type === "WhatsApp" ? <MessageCircle size={11} /> : type === "Email" ? <Mail size={11} /> : <Smartphone size={11} />}
-                        Send via {type}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* 4. BACKUP TAB */}
+        {/* 3. BACKUP TAB */}
         {activeTab === "backup" && <BackupTab isPremium={isPremium} toast={toast} />}
 
         {/* 5. ABOUT TAB */}

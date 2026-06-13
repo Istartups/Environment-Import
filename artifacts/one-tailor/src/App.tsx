@@ -33,6 +33,7 @@ const InviteTailors               = lazy(() => import("@/pages/InviteTailors"));
 const Account                     = lazy(() => import("@/pages/Account"));
 const TailorNotes                 = lazy(() => import("@/pages/TailorNotes"));
 const MessageCenter               = lazy(() => import("@/pages/MessageCenter"));
+const BrandKit                    = lazy(() => import("@/pages/brandkit"));
 const NotFound                    = lazy(() => import("@/pages/not-found"));
 
 function LoadingFallback() {
@@ -82,6 +83,7 @@ function Router() {
         <Route path="/account"            component={Account} />
         <Route path="/notes"              component={TailorNotes} />
         <Route path="/message-center"     component={MessageCenter} />
+        <Route path="/brand-kit"          component={BrandKit} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>
