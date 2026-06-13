@@ -1,0 +1,2001 @@
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import {
+  Users, UserPlus, Search, Ruler, X, Edit2, Trash2,
+  ChevronRight, Contact, Plus, LayoutGrid, CheckCircle2,
+  Phone, Mail, MapPin, Crown, ShieldCheck,
+  ChevronDown, ChevronUp, MessageCircle, ExternalLink,
+  Layers, RefreshCw, SlidersHorizontal, NotebookPen, Pin, Archive, RotateCcw, ChevronLeft,
+  Camera, ImageIcon, Upload, Copy, Check, Clock, ArrowUpDown, MessageSquareText, Shirt
+} from "lucide-react";
+import { SYSTEM_TEMPLATES_META } from "@/lib/measurement-data";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { useAppStore } from "@/store/useAppStore";
+import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
+import { getDeviceId, validateName, validatePhone } from "@/lib/utils";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type Gender = "male" | "female" | "others";
+
+interface Customer {
+  id: number;
+  name: string;
+  phone: string;
+  gender: Gender;
+  email?: string;
+  address?: string;
+  notes?: string;
+  updatedAt: string;
+  lastMeasurementDate?: string;
+  measurementCount?: number;
+}
+
+interface Measurement {
+  id: number;
+  customerId: number;
+  label: string;
+  category: string;
+  values: string;
+  createdAt: string;
+  unit?: string;
+}
+
+type View =
+  | "clients"
+  | "client_detail"
+  | "add_client"
+  | "edit_client"
+  | "add_measurement"
+  | "edit_measurement"
+  | "measurement_cards"
+  | "upload_measurement_image";
+
+type SortMode = "recent" | "az";
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+export default function CustomerMeasurement() {
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
+
+  const isPremium           = useAppStore(s => s.isPremium);
+  const measurementLimit    = useAppStore(s => s.measurementLimit);
+  const proUpgradeMessage   = useAppStore(s => s.proUpgradeMessage);
+  const proUpgradeLink      = useAppStore(s => s.proUpgradeLink);
+  const proUpgradeButtonText = useAppStore(s => s.proUpgradeButtonText);
+  const proUpgradeTitle     = useAppStore(s => s.proUpgradeTitle);
+  const customTemplates          = useAppStore(s => s.customTemplates);
+  const customMeasurementFields  = useAppStore(s => s.customMeasurementFields);
+  const addCustomMeasurementField = useAppStore(s => s.addCustomMeasurementField);
+
+  // ── UI state ──
+  const [view, setView]               = useState<View>("clients");
+  const [loading, setLoading]         = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showOptional, setShowOptional] = useState(false);
+  const [genderFilter, setGenderFilter]     = useState<"all" | Gender>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [measurementSearch, setMeasurementSearch] = useState("");
+  const [isQuickMode, setIsQuickMode] = useState(false);
+  const [sortMode, setSortMode] = useState<SortMode>("recent");
+  const [copiedRecordId, setCopiedRecordId] = useState<number | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [deleteConfirmType, setDeleteConfirmType] = useState<"measurement" | "client" | null>(null);
+
+  // ── Draft recovery state ──
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  const [draftCustomerName, setDraftCustomerName] = useState<string | null>(null);
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Upload measurement image state ──
+  const [uploadImgData, setUploadImgData] = useState<string | null>(null);
+  const [uploadImgLoading, setUploadImgLoading] = useState(false);
+  const [uploadImgLabel, setUploadImgLabel] = useState("Measurement Photo");
+  const uploadImgFileRef = useRef<HTMLInputElement>(null);
+
+  // ── Edit measurement reference image ──
+  const [editRefImage, setEditRefImage] = useState<string | null>(null);
+  const [editRefImageLoading, setEditRefImageLoading] = useState(false);
+  const editRefImageRef = useRef<HTMLInputElement>(null);
+
+  // ── Data state ──
+  const [customers, setCustomers]         = useState<Customer[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [measurements, setMeasurements]   = useState<Measurement[]>([]);
+
+  // ── Detail tab ──
+  const [detailTab, setDetailTab] = useState<"measurements" | "notes">("measurements");
+
+  // ── Customer notes ──
+  interface CustomerNote { id: number; title: string; content: string; tags: string | null; isPinned: boolean; isArchived: boolean; imageData?: string | null; updatedAt: string; createdAt?: string; }
+  const [customerNotes, setCustomerNotes] = useState<CustomerNote[]>([]);
+  const [noteForm, setNoteForm] = useState({ show: false, title: "", content: "", tags: "", imageData: null as string | null });
+  const [noteSaving, setNoteSaving] = useState(false);
+  const [noteSearch, setNoteSearch] = useState("");
+  const noteImageRef = useRef<HTMLInputElement>(null);
+
+  // ── Client form ──
+  const [customerForm, setCustomerForm] = useState({
+    name: "", phone: "", gender: "male" as Gender, email: "", address: "", notes: ""
+  });
+
+  // ── Measurement form ──
+  const [measurementForm, setMeasurementForm] = useState({
+    id: undefined as number | undefined,
+    label: "Initial Measurement",
+    category: "",
+    unit: "Inches" as "Inches" | "CM",
+    values: {} as Record<string, string>,
+    customFields: [] as { name: string; value: string }[]
+  });
+
+  // ── Post-save "add measurement?" modal ──
+  const [showAddMeasurePrompt, setShowAddMeasurePrompt] = useState(false);
+  const [promptCustomer, setPromptCustomer] = useState<Customer | null>(null);
+
+  // ── Measurement add sub-step (unit → template → fields) ──
+  const [measureAddStep, setMeasureAddStep] = useState<"unit" | "template" | "fields">("unit");
+
+
+  // ─── Data fetching ──────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    fetchCustomers();
+  }, [searchQuery, genderFilter]);
+
+  const fetchCustomers = async () => {
+    try {
+      const params = new URLSearchParams({ deviceId: getDeviceId(), search: searchQuery });
+      if (genderFilter !== "all") params.set("gender", genderFilter);
+      const res = await fetch(`/api/tailoring/customers?${params}`);
+      if (res.ok) {
+        const data: Customer[] = await res.json();
+        const enriched = await Promise.all(data.map(async (c) => {
+          try {
+            const mRes = await fetch(`/api/tailoring/measurements/${c.id}`);
+            if (mRes.ok) {
+              const mData: Measurement[] = await mRes.json();
+              const sorted = mData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+              return { ...c, lastMeasurementDate: sorted[0]?.createdAt, measurementCount: mData.length };
+            }
+          } catch {}
+          return { ...c, measurementCount: 0 };
+        }));
+        setCustomers(enriched);
+      }
+    } catch (e) {
+      console.error("Fetch error:", e);
+    }
+  };
+
+  const fetchMeasurements = async (customerId: number) => {
+    try {
+      const res = await fetch(`/api/tailoring/measurements/${customerId}`);
+      if (res.ok) setMeasurements(await res.json());
+    } catch (e) { console.error(e); }
+  };
+
+  const fetchCustomerNotes = async (customerId: number) => {
+    try {
+      const res = await fetch(`/api/notes?deviceId=${getDeviceId()}&customerId=${customerId}&archived=false`);
+      if (res.ok) {
+        const data = await res.json();
+        setCustomerNotes((data as any[]).map(n => ({
+          id: n.id,
+          title: n.title ?? "",
+          content: n.content ?? "",
+          tags: n.tags ?? null,
+          isPinned: n.is_pinned ?? n.isPinned ?? false,
+          isArchived: n.is_archived ?? n.isArchived ?? false,
+          imageData: n.image_data ?? n.imageData ?? null,
+          updatedAt: n.updated_at ?? n.updatedAt ?? "",
+          createdAt: n.created_at ?? n.createdAt ?? "",
+        })));
+      }
+    } catch { /* silent */ }
+  };
+
+  const saveCustomerNote = async () => {
+    if (!selectedCustomer || !noteForm.title.trim() || !noteForm.content.trim()) return;
+    setNoteSaving(true);
+    try {
+      const res = await fetch("/api/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deviceId: getDeviceId(),
+          title: noteForm.title.trim(),
+          content: noteForm.content.trim(),
+          tags: noteForm.tags.trim() || undefined,
+          customerId: selectedCustomer.id,
+          imageData: noteForm.imageData || undefined,
+        }),
+      });
+      if (res.ok) {
+        setNoteForm({ show: false, title: "", content: "", tags: "", imageData: null });
+        if (noteImageRef.current) noteImageRef.current.value = "";
+        await fetchCustomerNotes(selectedCustomer.id);
+        toast({ title: "Note saved" });
+      }
+    } catch { /* silent */ }
+    finally { setNoteSaving(false); }
+  };
+
+  const deleteCustomerNote = async (noteId: number) => {
+    if (!confirm("Delete this note?")) return;
+    try {
+      await fetch(`/api/notes/${noteId}?deviceId=${getDeviceId()}`, { method: "DELETE" });
+      setCustomerNotes(prev => prev.filter(n => n.id !== noteId));
+      toast({ title: "Note deleted" });
+    } catch { /* silent */ }
+  };
+
+  const toggleNotePin = async (note: { id: number; isPinned: boolean }) => {
+    try {
+      await fetch(`/api/notes/${note.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceId: getDeviceId(), isPinned: !note.isPinned }),
+      });
+      if (selectedCustomer) await fetchCustomerNotes(selectedCustomer.id);
+    } catch { /* silent */ }
+  };
+
+  useEffect(() => {
+    if (view === "client_detail" && selectedCustomer) {
+      fetchCustomerNotes(selectedCustomer.id);
+    }
+  }, [view, selectedCustomer?.id]);
+
+  // ─── URL param deep-link ────────────────────────────────────────────────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const action = params.get("action");
+    const cIdParam = params.get("customerId");
+    const mode = params.get("mode");
+    if (mode === "quick") setIsQuickMode(true);
+
+    if (action === "new_client") {
+      setView("add_client");
+      return;
+    }
+
+    if (action === "new_measurement" && cIdParam) {
+      const cId = parseInt(cIdParam);
+      fetch(`/api/tailoring/customers?deviceId=${getDeviceId()}`)
+        .then(r => r.json())
+        .then((all: Customer[]) => {
+          setCustomers(all);
+          const c = all.find(x => x.id === cId);
+          if (c) {
+            setSelectedCustomer(c);
+            fetch(`/api/tailoring/measurements/${cId}`)
+              .then(r => r.json())
+              .then(setMeasurements)
+              .catch(console.error);
+            setMeasurementForm({ id: undefined, label: "Initial Measurement", category: "", unit: "Inches", values: {}, customFields: [] });
+            setView("add_measurement");
+          }
+        })
+        .catch(console.error);
+    }
+
+    const raw = localStorage.getItem("measurement_draft");
+    if (raw) {
+      try {
+        const draft = JSON.parse(raw);
+        if (draft?.customerName) {
+          setDraftCustomerName(draft.customerName);
+          setShowDraftModal(true);
+        }
+      } catch { /* ignore */ }
+    }
+  }, []);
+
+  // ── Auto-save measurement draft ────────────────────────────────────────────
+  useEffect(() => {
+    if (view !== "add_measurement" || !selectedCustomer) return;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      const draft = {
+        customerName: selectedCustomer.name,
+        customerId: selectedCustomer.id,
+        measurementForm,
+        measureAddStep,
+        savedAt: new Date().toISOString(),
+      };
+      localStorage.setItem("measurement_draft", JSON.stringify(draft));
+    }, 2500);
+    return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
+  }, [view, selectedCustomer, measurementForm, measureAddStep]);
+
+  const clearDraft = () => localStorage.removeItem("measurement_draft");
+
+  // ─── Helpers ────────────────────────────────────────────────────────────────
+
+  const getTemplateFields = useCallback((category: string): string[] => {
+    if (SYSTEM_TEMPLATES_META[category]) return SYSTEM_TEMPLATES_META[category].fields;
+    const custom = customTemplates.find(t => t.name === category);
+    if (custom) return custom.fields;
+    return Object.keys(measurementForm.values);
+  }, [customTemplates, measurementForm.values]);
+
+  const filteredCategories = useMemo(() => {
+    const gender = selectedCustomer?.gender || customerForm.gender;
+    const systemCats = Object.entries(SYSTEM_TEMPLATES_META)
+      .filter(([, meta]) => {
+        if (gender === "others") return true;
+        return meta.gender === "both" || meta.gender === gender;
+      })
+      .map(([name]) => name);
+    const customCats = customTemplates
+      .filter(t => {
+        if (gender === "others") return true;
+        return t.gender === "both" || t.gender === gender;
+      })
+      .map(t => t.name);
+    return [...systemCats, ...customCats];
+  }, [customerForm.gender, selectedCustomer?.gender, customTemplates]);
+
+  const uniqueCategories = useMemo(() =>
+    [...new Set(measurements.map(m => m.category))].sort(),
+    [measurements]
+  );
+
+  const displayedMeasurements = useMemo(() => {
+    let base = categoryFilter === "all" ? measurements : measurements.filter(m => m.category === categoryFilter);
+    if (measurementSearch.trim()) {
+      const q = measurementSearch.toLowerCase();
+      base = base.filter(m =>
+        m.label.toLowerCase().includes(q) ||
+        m.category.toLowerCase().includes(q)
+      );
+    }
+    return base;
+  }, [measurements, categoryFilter, measurementSearch]);
+
+  const filteredNotes = useMemo(() => {
+    if (!noteSearch.trim()) return customerNotes;
+    const q = noteSearch.toLowerCase();
+    return customerNotes.filter(n =>
+      n.title.toLowerCase().includes(q) ||
+      n.content.toLowerCase().includes(q) ||
+      (n.tags && n.tags.toLowerCase().includes(q))
+    );
+  }, [customerNotes, noteSearch]);
+
+  const sortedCustomers = useMemo(() => {
+    const list = [...customers];
+    if (sortMode === "az") {
+      return list.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return list.sort((a, b) => {
+      const aDate = a.lastMeasurementDate || a.updatedAt;
+      const bDate = b.lastMeasurementDate || b.updatedAt;
+      return new Date(bDate).getTime() - new Date(aDate).getTime();
+    });
+  }, [customers, sortMode]);
+
+  const parseMeasurements = (valStr: string) => {
+    try {
+      let parsed = JSON.parse(valStr);
+      if (typeof parsed === "string") parsed = JSON.parse(parsed);
+      return parsed || {};
+    } catch { return {}; }
+  };
+
+  function relativeDate(dateStr: string) {
+    if (!dateStr) return "";
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const d = Math.floor(diff / 86400000);
+    if (d === 0) return "Today";
+    if (d === 1) return "Yesterday";
+    if (d < 7)  return `${d}d ago`;
+    if (d < 30) return `${Math.floor(d / 7)}w ago`;
+    return `${Math.floor(d / 30)}mo ago`;
+  }
+
+  const inp = "w-full text-sm rounded-xl px-4 py-3 bg-card border border-border focus:border-primary/50 outline-none transition-all";
+
+  // ─── Copy measurement to clipboard ──────────────────────────────────────────
+
+  const copyMeasurementRecord = (m: Measurement) => {
+    const vals = parseMeasurements(m.values);
+    const lines: string[] = [];
+    lines.push(`${m.label} (${m.category})`);
+    lines.push("");
+    Object.entries(vals).filter(([k]) => !k.startsWith('_')).forEach(([k, v]) => {
+      const unit = (m as any).unit === "CM" ? "cm" : '"';
+      lines.push(`${k}: ${v}${unit}`);
+    });
+    const text = lines.join("\n");
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedRecordId(m.id);
+      toast({ title: "Copied", description: "Measurement values copied to clipboard" });
+      setTimeout(() => setCopiedRecordId(null), 2000);
+    });
+  };
+
+  // ─── Copy from last measurement ────────────────────────────────────────────
+
+  const copyFromLastMeasurement = (category: string) => {
+    const last = measurements
+      .filter(m => m.category === category)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    if (!last) {
+      toast({ title: "No previous", description: `No previous "${category}" measurement found.` });
+      return;
+    }
+    const vals = parseMeasurements(last.values);
+    const newVals: Record<string, string> = {};
+    getTemplateFields(category).forEach(f => {
+      if (vals[f] !== undefined) newVals[f] = String(vals[f]);
+    });
+    setMeasurementForm({ ...measurementForm, values: newVals });
+    toast({ title: "Pre-filled", description: `Copied values from last "${category}" record.` });
+  };
+
+  // ─── Handlers — Customer ────────────────────────────────────────────────────
+
+  const confirmDeleteCustomer = (id: number) => {
+    setDeleteConfirmId(id);
+    setDeleteConfirmType("client");
+  };
+
+  const handleDeleteCustomer = async () => {
+    if (!deleteConfirmId || deleteConfirmType !== "client") return;
+    try {
+      const res = await fetch(`/api/tailoring/customers/${deleteConfirmId}`, { method: "DELETE" });
+      if (res.ok) {
+        toast({ title: "Deleted", description: "Customer and measurements removed." });
+        await fetchCustomers();
+        setView("clients");
+      }
+    } catch { toast({ title: "Error", description: "Failed to delete customer." }); }
+    finally { setDeleteConfirmId(null); setDeleteConfirmType(null); }
+  };
+
+  const confirmDeleteMeasurement = (id: number) => {
+    setDeleteConfirmId(id);
+    setDeleteConfirmType("measurement");
+  };
+
+  const handleDeleteMeasurement = async () => {
+    if (!deleteConfirmId || deleteConfirmType !== "measurement") return;
+    try {
+      const res = await fetch(`/api/tailoring/measurements/${deleteConfirmId}`, { method: "DELETE" });
+      if (res.ok) {
+        toast({ title: "Deleted", description: "Measurement record removed." });
+        if (selectedCustomer) fetchMeasurements(selectedCustomer.id);
+      }
+    } catch { toast({ title: "Error", description: "Failed to delete." }); }
+    finally { setDeleteConfirmId(null); setDeleteConfirmType(null); }
+  };
+
+  const handleSaveCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customerForm.name || !customerForm.phone) {
+      toast({ title: "Required Fields", description: "Name and Phone are required.", variant: "destructive" });
+      return;
+    }
+    const nameVal = validateName(customerForm.name);
+    if (!nameVal.valid) {
+      toast({ title: "Invalid Name", description: nameVal.message, variant: "destructive" });
+      return;
+    }
+    const phoneVal = validatePhone(customerForm.phone);
+    if (!phoneVal.valid) {
+      toast({ title: "Invalid Phone", description: phoneVal.message, variant: "destructive" });
+      return;
+    }
+    if (!selectedCustomer && !isPremium && customers.length >= measurementLimit) {
+      toast({ title: "Limit Reached", description: `Unlock Premium to add more than ${measurementLimit} customers.`, variant: "destructive" });
+      setLocation("/pre-unlock");
+      return;
+    }
+    setLoading(true);
+    try {
+      const isNew = !selectedCustomer;
+      const res = await fetch("/api/tailoring/customers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...customerForm, deviceId: getDeviceId(), id: selectedCustomer?.id })
+      });
+      if (res.ok) {
+        const saved: Customer = await res.json();
+        toast({ title: "Saved", description: "Customer profile saved." });
+        await fetchCustomers();
+        if (isNew) {
+          resetForms();
+          if (isQuickMode) {
+            setSelectedCustomer(saved);
+            fetchMeasurements(saved.id);
+            setMeasurementForm({ id: undefined, label: "Initial Measurement", category: "", unit: "Inches", values: {}, customFields: [] });
+            setMeasureAddStep("unit");
+            setView("add_measurement");
+          } else {
+            setPromptCustomer(saved);
+            setShowAddMeasurePrompt(true);
+          }
+        } else {
+          setSelectedCustomer(saved);
+          fetchMeasurements(saved.id);
+          setView("client_detail");
+          resetForms();
+        }
+      } else {
+        const err = await res.json();
+        toast({ title: "Error", description: err.message || "Failed to save.", variant: "destructive" });
+      }
+    } catch { toast({ title: "Error", description: "Connection error.", variant: "destructive" }); }
+    finally { setLoading(false); }
+  };
+
+  // ─── Handlers — Measurement ─────────────────────────────────────────────────
+
+  const validateMeasurementValue = (val: string) => !val || /^\d*\.?\d*$/.test(val);
+
+  const handleSaveMeasurement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCustomer || !measurementForm.category) return;
+    for (const [key, val] of Object.entries(measurementForm.values)) {
+      if (!validateMeasurementValue(val)) {
+        toast({ title: "Invalid", description: `Enter only numbers for ${key}.`, variant: "destructive" });
+        return;
+      }
+    }
+    for (const cf of measurementForm.customFields) {
+      if (cf.value && !validateMeasurementValue(cf.value)) {
+        toast({ title: "Invalid", description: `Enter only numbers for ${cf.name}.`, variant: "destructive" });
+        return;
+      }
+    }
+    const finalValues = { ...measurementForm.values };
+    delete finalValues['_refImage'];
+    measurementForm.customFields.forEach(cf => {
+      if (cf.name.trim()) {
+        finalValues[cf.name.trim()] = cf.value;
+        addCustomMeasurementField(cf.name.trim());
+      }
+    });
+    if (editRefImage) finalValues['_refImage'] = editRefImage;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/tailoring/measurements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: measurementForm.id,
+          customerId: selectedCustomer.id,
+          label: measurementForm.label,
+          category: measurementForm.category,
+          unit: measurementForm.unit,
+          values: finalValues
+        })
+      });
+      if (res.ok) {
+        toast({ title: "Saved", description: measurementForm.id ? "Record updated." : "Record saved." });
+        clearDraft();
+        fetchMeasurements(selectedCustomer.id);
+        setView("client_detail");
+      }
+    } catch { toast({ title: "Error", description: "Failed to save.", variant: "destructive" }); }
+    finally { setLoading(false); }
+  };
+
+  const handleRepeatMeasurement = (m: Measurement) => {
+    const vals = parseMeasurements(m.values);
+    setMeasurementForm({
+      id: undefined,
+      label: `${m.label} (New)`,
+      category: m.category,
+      unit: (m as any).unit || "Inches",
+      values: {},
+      customFields: []
+    });
+    setMeasureAddStep("fields");
+    setView("add_measurement");
+  };
+
+  // ─── Misc helpers ────────────────────────────────────────────────────────────
+
+  const resetForms = () => {
+    setCustomerForm({ name: "", phone: "", gender: "male", email: "", address: "", notes: "" });
+    setMeasurementForm({ id: undefined, label: "Initial Measurement", category: "", unit: "Inches", values: {}, customFields: [] });
+    setSelectedCustomer(null);
+    setShowOptional(false);
+  };
+
+  const handleViewDetail = (c: Customer) => {
+    setSelectedCustomer(c);
+    fetchMeasurements(c.id);
+    setCategoryFilter("all");
+    setView("client_detail");
+  };
+
+  const onBack = () => {
+    if (view === "client_detail") {
+      setSelectedCustomer(null);
+      setView("clients");
+    } else if (view === "add_measurement" || view === "edit_measurement") {
+      clearDraft();
+      setView("client_detail");
+    } else if (view === "add_client" || view === "edit_client") {
+      setView(selectedCustomer ? "client_detail" : "clients");
+    } else if (view === "measurement_cards") {
+      setView("client_detail");
+    } else if (view === "upload_measurement_image") {
+      setUploadImgData(null);
+      setView(selectedCustomer ? "client_detail" : "clients");
+    } else {
+      setLocation("/all-tools?cat=clients");
+    }
+  };
+
+  const pageTitle = {
+    clients: "Clients",
+    client_detail: selectedCustomer?.name || "Client",
+    add_client: "Add Client",
+    edit_client: "Edit Client",
+    add_measurement: "Add Measurement",
+    edit_measurement: "Edit Measurement",
+    measurement_cards: "Measurement Cards",
+    upload_measurement_image: "Upload Measurement Photo",
+  }[view] ?? "Clients";
+
+  const genderColor = (g: Gender) =>
+    g === "female" ? "bg-pink-500/10 text-pink-500"
+    : g === "male"   ? "bg-blue-500/10 text-blue-500"
+    :                  "bg-purple-500/10 text-purple-500";
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  return (
+    <div className="max-w-xl mx-auto pb-24 relative min-h-screen">
+
+      {/* ── Delete Confirmation Modal ──────────────────────────────────────── */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-[300] bg-black/70 backdrop-blur-sm flex items-center justify-center p-5 animate-in fade-in duration-200">
+          <div className="bg-card w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl border border-red-500/20 animate-in zoom-in-95 duration-200">
+            <div className="p-6 space-y-4">
+              <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto">
+                <Trash2 size={28} className="text-red-500" />
+              </div>
+              <div className="text-center space-y-1.5">
+                <h3 className="text-base font-black">
+                  {deleteConfirmType === "client" ? "Delete Client?" : "Delete Measurement?"}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {deleteConfirmType === "client"
+                    ? "This will permanently delete this client and all their measurement records."
+                    : "This measurement record will be permanently removed."}
+                </p>
+                <p className="text-xs text-red-400 font-bold">This cannot be undone.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  onClick={() => { setDeleteConfirmId(null); setDeleteConfirmType(null); }}
+                  className="py-3 rounded-2xl border border-border text-sm font-bold text-muted-foreground hover:bg-muted transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={deleteConfirmType === "client" ? handleDeleteCustomer : handleDeleteMeasurement}
+                  className="py-3 rounded-2xl bg-red-500 text-white text-sm font-bold shadow-lg shadow-red-500/20 active:scale-[0.98] transition-all"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Post-save "Add Measurement?" prompt ──────────────────────────── */}
+      {showAddMeasurePrompt && promptCustomer && (
+        <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-5 animate-in fade-in duration-200">
+          <div className="bg-card w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl border border-border animate-in zoom-in-95 duration-200">
+            <div className="p-6 space-y-4">
+              <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
+                <CheckCircle2 size={28} className="text-primary" />
+              </div>
+              <div className="text-center space-y-1.5">
+                <h3 className="text-base font-black">Customer Added!</h3>
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-bold text-foreground">{promptCustomer.name}</span> has been saved.
+                </p>
+                <p className="text-xs text-muted-foreground pt-1">Would you like to add a measurement record now?</p>
+              </div>
+              <div className="space-y-2 pt-2">
+                <button
+                  onClick={() => {
+                    const c = promptCustomer!;
+                    setShowAddMeasurePrompt(false);
+                    setPromptCustomer(null);
+                    setSelectedCustomer(c);
+                    fetchMeasurements(c.id);
+                    setMeasurementForm({ id: undefined, label: "Initial Measurement", category: "", unit: "Inches", values: {}, customFields: [] });
+                    setMeasureAddStep("unit");
+                    setView("add_measurement");
+                  }}
+                  className="w-full py-3 rounded-2xl bg-primary text-primary-foreground text-sm font-bold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                >
+                  <Ruler size={15} /> Add Measurement
+                </button>
+                <button
+                  onClick={() => {
+                    const c = promptCustomer!;
+                    setShowAddMeasurePrompt(false);
+                    setPromptCustomer(null);
+                    setSelectedCustomer(c);
+                    setUploadImgData(null);
+                    setUploadImgLabel("Measurement Photo");
+                    setView("upload_measurement_image");
+                  }}
+                  className="w-full py-3 rounded-2xl border border-primary/30 bg-primary/5 text-primary text-sm font-bold active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                >
+                  <Camera size={15} /> Upload Measurement Photo
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAddMeasurePrompt(false);
+                    setPromptCustomer(null);
+                    setView("clients");
+                  }}
+                  className="w-full py-3 rounded-2xl border border-border text-sm font-bold text-muted-foreground hover:bg-muted transition-all"
+                >
+                  Skip for Now
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Draft recovery modal ─────────────────────────────────────────── */}
+      {showDraftModal && draftCustomerName && (
+        <div className="fixed inset-0 z-[300] bg-black/70 backdrop-blur-sm flex items-center justify-center p-5 animate-in fade-in duration-200">
+          <div className="bg-card w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl border border-border animate-in zoom-in-95 duration-200">
+            <div className="p-6 space-y-4">
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center mx-auto">
+                <Ruler size={26} className="text-amber-500" />
+              </div>
+              <div className="text-center space-y-1.5">
+                <h3 className="text-base font-black">Draft Found</h3>
+                <p className="text-sm text-muted-foreground">
+                  You have an unsaved measurement draft for <span className="font-bold text-foreground">{draftCustomerName}</span>.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  onClick={() => { clearDraft(); setShowDraftModal(false); setDraftCustomerName(null); }}
+                  className="py-3 rounded-2xl border border-border text-sm font-bold text-muted-foreground hover:bg-muted transition-all"
+                >
+                  Discard
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDraftModal(false);
+                    setDraftCustomerName(null);
+                    const raw = localStorage.getItem("measurement_draft");
+                    if (!raw) return;
+                    try {
+                      const draft = JSON.parse(raw);
+                      fetch(`/api/tailoring/customers?deviceId=${getDeviceId()}`)
+                        .then(r => r.json())
+                        .then((all: Customer[]) => {
+                          setCustomers(all);
+                          const c = all.find((x: Customer) => x.id === draft.customerId);
+                          if (c) {
+                            setSelectedCustomer(c);
+                            fetchMeasurements(c.id);
+                            setMeasurementForm(draft.measurementForm);
+                            setMeasureAddStep(draft.measureAddStep || "unit");
+                            setView("add_measurement");
+                          } else { clearDraft(); }
+                        })
+                        .catch(() => clearDraft());
+                    } catch { clearDraft(); }
+                  }}
+                  className="py-3 rounded-2xl bg-primary text-primary-foreground text-sm font-bold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
+                >
+                  Restore
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <PageHeader
+        title={pageTitle}
+        subtitle={view === "clients" ? "Manage your client records" : ""}
+        onBack={onBack}
+      />
+
+      <div className="px-4 py-4 space-y-6">
+
+        {/* ── 1. CLIENTS LIST ─────────────────────────────────────────────── */}
+        {view === "clients" && (
+          <div className="space-y-4 animate-in fade-in duration-300">
+
+            {/* Search + Sort */}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  placeholder="Search by name or phone..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className={`${inp} pl-11`}
+                />
+              </div>
+              <button
+                onClick={() => setSortMode(sortMode === "recent" ? "az" : "recent")}
+                className="w-12 h-12 rounded-xl flex items-center justify-center bg-card border border-border hover:bg-muted transition-colors"
+                title={sortMode === "recent" ? "Sorted: Recent first" : "Sorted: A-Z"}
+              >
+                <ArrowUpDown size={16} className={sortMode === "recent" ? "text-primary" : "text-muted-foreground"} />
+              </button>
+            </div>
+
+            {/* Gender filter */}
+            <div className="flex gap-2">
+              {(["all", "male", "female", "others"] as const).map(g => (
+                <button
+                  key={g}
+                  onClick={() => setGenderFilter(g)}
+                  className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all capitalize ${genderFilter === g ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground"}`}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
+
+            {/* Sort indicator */}
+            <p className="text-[9px] text-muted-foreground px-1">
+              {sortMode === "recent" ? "Sorted: Most recent first" : "Sorted: A-Z"}
+              {genderFilter !== "all" && ` · ${genderFilter}`}
+            </p>
+
+            {/* Client list */}
+            <div className="space-y-3">
+              {sortedCustomers.length === 0 ? (
+                <div className="text-center py-20 bg-card border border-dashed border-border rounded-3xl">
+                  <Contact size={40} className="mx-auto text-muted-foreground/20 mb-4" />
+                  <p className="text-muted-foreground text-sm">No customers found</p>
+                </div>
+              ) : (
+                sortedCustomers.map(c => (
+                  <div
+                    key={c.id}
+                    onClick={() => handleViewDetail(c)}
+                    className="p-4 bg-card border border-border rounded-2xl flex items-center justify-between cursor-pointer hover:border-primary/30 transition-all active:scale-[0.98]"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${genderColor(c.gender)}`}>
+                        {c.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm">{c.name}</h4>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-[10px] text-muted-foreground">{c.phone}</p>
+                          {c.measurementCount !== undefined && c.measurementCount > 0 && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                              {c.measurementCount} measurement{c.measurementCount !== 1 ? "s" : ""}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {c.lastMeasurementDate && (
+                        <span className="text-[9px] text-muted-foreground flex items-center gap-1">
+                          <Clock size={10} />
+                          {relativeDate(c.lastMeasurementDate)}
+                        </span>
+                      )}
+                      <ChevronRight size={16} className="text-muted-foreground" />
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* FABs */}
+            <div className="fixed bottom-24 right-6 flex flex-col gap-3 items-end">
+              <button
+                onClick={() => { resetForms(); setView("add_client"); }}
+                className="flex items-center gap-3 bg-primary text-primary-foreground pl-4 pr-4 py-3.5 rounded-2xl shadow-2xl active:scale-95 transition-all"
+              >
+                <span className="text-xs font-black uppercase tracking-widest">Add Client</span>
+                <UserPlus size={20} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── 2. ADD / EDIT CLIENT ─────────────────────────────────────────── */}
+        {(view === "add_client" || view === "edit_client") && (
+          <form onSubmit={handleSaveCustomer} className="bg-card border border-border rounded-3xl p-6 space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-1.5 block">Full Name *</label>
+                <input
+                  placeholder="e.g. John Doe"
+                  value={customerForm.name}
+                  onChange={e => setCustomerForm({ ...customerForm, name: e.target.value })}
+                  className={inp}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-1.5 block">Phone Number *</label>
+                <input
+                  type="tel"
+                  placeholder="e.g. 08012345678"
+                  value={customerForm.phone}
+                  onChange={e => setCustomerForm({ ...customerForm, phone: e.target.value.replace(/\D/g, "") })}
+                  className={inp}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-1.5 block">Gender</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["male", "female", "others"] as const).map(g => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => setCustomerForm({ ...customerForm, gender: g })}
+                      className={`py-3 rounded-xl text-xs font-bold border transition-all capitalize ${customerForm.gender === g ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground"}`}
+                    >
+                      {g}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowOptional(!showOptional)}
+                  className="flex items-center gap-2 text-xs font-bold text-primary/80 hover:text-primary transition-colors ml-1"
+                >
+                  {showOptional ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  {showOptional ? "Hide Additional Info" : "Add Email, Address & Notes"}
+                </button>
+                {showOptional && (
+                  <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-1.5 block">Email Address</label>
+                      <div className="relative">
+                        <Mail size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
+                        <input
+                          type="email"
+                          placeholder="client@example.com"
+                          value={customerForm.email}
+                          onChange={e => setCustomerForm({ ...customerForm, email: e.target.value })}
+                          className={`${inp} pl-11`}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-1.5 block">Delivery Address</label>
+                      <div className="relative">
+                        <MapPin size={14} className="absolute left-4 top-3 text-muted-foreground/50" />
+                        <textarea
+                          placeholder="Delivery address..."
+                          value={customerForm.address}
+                          onChange={e => setCustomerForm({ ...customerForm, address: e.target.value })}
+                          className={`${inp} pl-11 min-h-[80px] py-3`}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-1.5 block">Internal Notes</label>
+                      <textarea
+                        placeholder="Any special requests or details..."
+                        value={customerForm.notes}
+                        onChange={e => setCustomerForm({ ...customerForm, notes: e.target.value })}
+                        className={`${inp} min-h-[80px]`}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {loading ? "Saving..." : (view === "edit_client" ? "Update Customer" : "Create Customer")}
+              {!loading && <CheckCircle2 size={18} />}
+            </button>
+          </form>
+        )}
+
+        {/* ── 3. CLIENT DETAIL ─────────────────────────────────────────────── */}
+        {view === "client_detail" && selectedCustomer && (
+          <div className="space-y-4 animate-in fade-in duration-300">
+
+            {/* Compact profile strip */}
+            <div className="p-4 bg-card border border-border rounded-2xl flex items-center gap-3">
+              <div className={`w-11 h-11 rounded-full flex items-center justify-center text-lg font-black shrink-0 ${genderColor(selectedCustomer.gender)}`}>
+                {selectedCustomer.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-sm font-black truncate">{selectedCustomer.name}</h2>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                  <Phone size={10} /> {selectedCustomer.phone}
+                  {selectedCustomer.email && <><Mail size={10} /> {selectedCustomer.email}</>}
+                </div>
+                {selectedCustomer.measurementCount !== undefined && selectedCustomer.measurementCount > 0 && (
+                  <p className="text-[9px] text-muted-foreground mt-0.5">
+                    {selectedCustomer.measurementCount} measurement{selectedCustomer.measurementCount !== 1 ? "s" : ""}
+                    {selectedCustomer.lastMeasurementDate && ` · Last: ${relativeDate(selectedCustomer.lastMeasurementDate)}`}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Quick actions */}
+            <div className="grid grid-cols-4 gap-1.5">
+              <button onClick={() => {
+                setCustomerForm({ name: selectedCustomer.name, phone: selectedCustomer.phone, gender: selectedCustomer.gender, email: selectedCustomer.email || "", address: selectedCustomer.address || "", notes: selectedCustomer.notes || "" });
+                setShowOptional(true);
+                setView("edit_client");
+              }} className="flex flex-col items-center gap-1 p-2.5 rounded-xl bg-muted/50 hover:bg-muted transition-all">
+                <Edit2 size={15} />
+                <span className="text-[8px] font-black uppercase">Edit</span>
+              </button>
+              <button onClick={() => {
+                setMeasurementForm({ id: undefined, label: "Initial Measurement", category: "", unit: "Inches", values: {}, customFields: [] });
+                setMeasureAddStep("unit");
+                setView("add_measurement");
+              }} className="flex flex-col items-center gap-1 p-2.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary transition-all">
+                <Plus size={15} />
+                <span className="text-[8px] font-black uppercase">Measure</span>
+              </button>
+              <button onClick={() => setLocation(`/measurement-card?customerId=${selectedCustomer.id}`)}
+                className="flex flex-col items-center gap-1 p-2.5 rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 active:scale-95 transition-all">
+                <LayoutGrid size={15} />
+                <span className="text-[8px] font-black uppercase">Card</span>
+              </button>
+              <button onClick={() => setLocation(`/message-center`)}
+                className="flex flex-col items-center gap-1 p-2.5 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 text-violet-500 transition-all">
+                <MessageSquareText size={15} />
+                <span className="text-[8px] font-black uppercase">Message</span>
+              </button>
+
+            </div>
+
+            {/* Notes preview */}
+            {selectedCustomer.notes && (
+              <div className="px-3 py-2 bg-muted/20 rounded-xl text-[10px] text-muted-foreground italic">
+                "{selectedCustomer.notes}"
+              </div>
+            )}
+
+            {/* Detail tab strip */}
+            <div className="flex bg-muted/50 rounded-2xl p-1 gap-1">
+              <button
+                onClick={() => setDetailTab("measurements")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all ${detailTab === "measurements" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <Ruler size={13} /> Measurements
+              </button>
+              <button
+                onClick={() => setDetailTab("notes")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all ${detailTab === "notes" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <NotebookPen size={13} /> Notes {customerNotes.length > 0 && <span className="px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[9px] font-black">{customerNotes.length}</span>}
+              </button>
+            </div>
+
+            {/* ── NOTES TAB ────────────────────────────────────────────────── */}
+            {detailTab === "notes" && (
+              <div className="space-y-3 animate-in fade-in duration-200">
+                {/* Note search */}
+                {customerNotes.length > 3 && (
+                  <div className="relative">
+                    <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
+                    <input
+                      placeholder="Search notes..."
+                      value={noteSearch}
+                      onChange={e => setNoteSearch(e.target.value)}
+                      className="w-full pl-8 pr-8 py-2 text-xs bg-card border border-border rounded-xl outline-none focus:border-primary/50 transition-all"
+                    />
+                    {noteSearch && (
+                      <button onClick={() => setNoteSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1">
+                        <X size={11} className="text-muted-foreground" />
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {noteForm.show ? (
+                  <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <NotebookPen size={14} className="text-teal-500" />
+                      <span className="text-sm font-black">New Note</span>
+                    </div>
+                    <input
+                      placeholder="Title..."
+                      value={noteForm.title}
+                      onChange={e => setNoteForm(f => ({ ...f, title: e.target.value }))}
+                      className="w-full text-sm rounded-xl px-4 py-3 bg-muted/50 border border-border outline-none focus:border-primary/50 transition-all"
+                      autoFocus
+                    />
+                    <textarea
+                      placeholder="Note body..."
+                      value={noteForm.content}
+                      onChange={e => setNoteForm(f => ({ ...f, content: e.target.value }))}
+                      rows={4}
+                      className="w-full text-sm rounded-xl px-4 py-3 bg-muted/50 border border-border outline-none focus:border-primary/50 transition-all resize-none"
+                    />
+                    <input
+                      placeholder="Tags (comma-separated)..."
+                      value={noteForm.tags}
+                      onChange={e => setNoteForm(f => ({ ...f, tags: e.target.value }))}
+                      className="w-full text-sm rounded-xl px-4 py-2.5 bg-muted/50 border border-border outline-none focus:border-primary/50 transition-all"
+                    />
+                    <input ref={noteImageRef} type="file" accept="image/*" className="hidden"
+                      onChange={async (e) => {
+                        const f = e.target.files?.[0];
+                        if (!f) return;
+                        const maxPx = 900;
+                        const dataUrl = await new Promise<string>((resolve, reject) => {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            const img = new Image();
+                            img.onload = () => {
+                              let w = img.width, h = img.height;
+                              if (w > maxPx || h > maxPx) {
+                                if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; }
+                                else { w = Math.round(w * maxPx / h); h = maxPx; }
+                              }
+                              const canvas = document.createElement("canvas");
+                              canvas.width = w; canvas.height = h;
+                              canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+                              resolve(canvas.toDataURL("image/jpeg", 0.82));
+                            };
+                            img.onerror = reject;
+                            img.src = ev.target!.result as string;
+                          };
+                          reader.onerror = reject;
+                          reader.readAsDataURL(f);
+                        });
+                        setNoteForm(prev => ({ ...prev, imageData: dataUrl }));
+                      }}
+                    />
+                    {noteForm.imageData ? (
+                      <div className="relative rounded-xl overflow-hidden">
+                        <img src={noteForm.imageData} alt="Note" className="w-full h-28 object-cover rounded-xl" />
+                        <button
+                          type="button"
+                          onClick={() => { setNoteForm(prev => ({ ...prev, imageData: null })); if (noteImageRef.current) noteImageRef.current.value = ""; }}
+                          className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => noteImageRef.current?.click()}
+                        className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-muted/50 border border-dashed border-border text-muted-foreground text-xs font-medium hover:bg-muted transition-colors w-full justify-center"
+                      >
+                        <Camera size={13} /> Add Image
+                      </button>
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => { setNoteForm({ show: false, title: "", content: "", tags: "", imageData: null }); if (noteImageRef.current) noteImageRef.current.value = ""; }}
+                        className="py-3 rounded-xl border border-border text-sm font-bold text-muted-foreground hover:bg-muted transition-all"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={saveCustomerNote}
+                        disabled={noteSaving || !noteForm.title.trim() || !noteForm.content.trim()}
+                        className="py-3 rounded-xl bg-primary text-primary-foreground text-sm font-bold disabled:opacity-50 active:scale-[0.98] transition-all"
+                      >
+                        {noteSaving ? "Saving..." : "Save Note"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setNoteForm(f => ({ ...f, show: true }))}
+                    className="w-full py-3.5 rounded-2xl border-2 border-dashed border-teal-500/30 hover:border-teal-500/60 text-teal-600 font-bold text-sm flex items-center justify-center gap-2 transition-all"
+                  >
+                    <Plus size={15} /> Add Note
+                  </button>
+                )}
+
+                {filteredNotes.length === 0 && !noteForm.show ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <NotebookPen size={28} className="mx-auto opacity-20 mb-3" />
+                    <p className="text-xs">{noteSearch ? "No matching notes" : "No notes yet"}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {[...filteredNotes].sort((a, b) => Number(b.isPinned) - Number(a.isPinned)).map(note => (
+                      <div key={note.id} className={`bg-card border rounded-2xl p-3.5 group ${note.isPinned ? "border-primary/25" : "border-border"}`}>
+                        {note.isPinned && <div className="h-0.5 w-full bg-gradient-to-r from-primary/50 to-transparent rounded mb-2.5 -mt-3.5 -mx-3.5" style={{ width: "calc(100% + 1.75rem)" }} />}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              {note.isPinned && <Pin size={10} className="text-primary shrink-0" />}
+                              <p className="text-sm font-bold truncate">{note.title}</p>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-2">{note.content}</p>
+                            {note.tags && (
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {note.tags.split(",").filter(Boolean).map(t => (
+                                  <span key={t} className="px-1.5 py-0.5 bg-muted rounded-full text-[9px] font-bold text-muted-foreground">{t.trim()}</span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => toggleNotePin(note)} className={`p-1.5 rounded-lg transition-colors ${note.isPinned ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                              <Pin size={11} />
+                            </button>
+                            <button onClick={() => deleteCustomerNote(note.id)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors">
+                              <Trash2 size={11} />
+                            </button>
+                          </div>
+                        </div>
+                        {note.imageData && <img src={note.imageData} alt="Note" className="w-full h-28 object-cover rounded-xl mt-2" />}
+                        <p className="text-[9px] text-muted-foreground/40 mt-2">
+                          {(() => { const ds = note.updatedAt || note.createdAt || ""; if (!ds) return ""; const t = new Date(ds); if (isNaN(t.getTime())) return ""; const d = (Date.now() - t.getTime()) / 1000; if (d < 60) return "just now"; if (d < 3600) return `${Math.floor(d / 60)}m ago`; if (d < 86400) return `${Math.floor(d / 3600)}h ago`; return t.toLocaleDateString(); })()}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── MEASUREMENTS TAB ─────────────────────────────────────────── */}
+            {detailTab === "measurements" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between px-1">
+                <h3 className="font-bold flex items-center gap-2 text-sm uppercase tracking-widest text-muted-foreground">
+                  <Ruler size={14} /> Measurement Records
+                </h3>
+                <span className="text-[10px] text-muted-foreground">{measurements.length} record{measurements.length !== 1 ? "s" : ""}</span>
+              </div>
+
+              {measurements.length > 0 && (
+                <div className="relative">
+                  <Search size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
+                  <input
+                    placeholder="Search measurements..."
+                    value={measurementSearch}
+                    onChange={e => setMeasurementSearch(e.target.value)}
+                    className="w-full pl-9 pr-9 py-2.5 text-sm bg-card border border-border rounded-xl outline-none focus:border-primary/50 transition-all"
+                  />
+                  {measurementSearch && (
+                    <button onClick={() => setMeasurementSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted">
+                      <X size={11} className="text-muted-foreground" />
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {uniqueCategories.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                  <button
+                    onClick={() => setCategoryFilter("all")}
+                    className={`shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all ${categoryFilter === "all" ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground"}`}
+                  >
+                    All ({measurements.length})
+                  </button>
+                  {uniqueCategories.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setCategoryFilter(cat)}
+                      className={`shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all whitespace-nowrap ${categoryFilter === cat ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground"}`}
+                    >
+                      {cat} ({measurements.filter(m => m.category === cat).length})
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {displayedMeasurements.length === 0 ? (
+                <div className="text-center py-16 bg-card border border-dashed border-border rounded-3xl">
+                  <Ruler size={32} className="mx-auto text-muted-foreground/20 mb-3" />
+                  <p className="text-xs text-muted-foreground">
+                    {categoryFilter === "all" ? "No measurements recorded yet" : `No "${categoryFilter}" records`}
+                  </p>
+                  {categoryFilter === "all" ? (
+                    <button onClick={() => setView("add_measurement")} className="mt-4 text-xs font-black text-primary uppercase tracking-widest">
+                      Create First Record
+                    </button>
+                  ) : (
+                    <button onClick={() => setCategoryFilter("all")} className="mt-3 text-xs font-bold text-muted-foreground">
+                      Clear filter
+                    </button>
+                  )}
+                </div>
+              ) : (
+                displayedMeasurements.map(m => {
+                  const vals = parseMeasurements(m.values);
+                  const isImageRecord = m.category === "Image Upload" && vals.__image__;
+                  return (
+                    <div key={m.id} className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm hover:border-primary/20 transition-all">
+                      <div className="p-4 bg-muted/10 border-b border-border">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              {isImageRecord && <ImageIcon size={11} className="text-primary" />}
+                              <p className="text-xs font-black">{m.label}</p>
+                            </div>
+                            <p className="text-[9px] text-muted-foreground uppercase tracking-widest">{m.category} · {new Date(m.createdAt).toLocaleDateString()}</p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {!isImageRecord && (
+                              <>
+                                <button
+                                  onClick={() => copyMeasurementRecord(m)}
+                                  className="p-1.5 rounded-md hover:bg-muted text-muted-foreground transition-colors"
+                                  title="Copy all values"
+                                >
+                                  {copiedRecordId === m.id ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+                                </button>
+                                <button
+                                  onClick={() => setLocation(`/measurement-card?customerId=${selectedCustomer.id}&recordId=${m.id}`)}
+                                  className="p-1.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                                  title="Generate Card"
+                                >
+                                  <LayoutGrid size={12} />
+                                </button>
+                                <button
+                                  onClick={() => handleRepeatMeasurement(m)}
+                                  className="p-1.5 rounded-md bg-muted/50 hover:bg-muted text-muted-foreground transition-colors"
+                                  title="Repeat"
+                                >
+                                  <RefreshCw size={12} />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditRefImage(typeof vals._refImage === 'string' ? vals._refImage : null);
+                                    setMeasurementForm({
+                                      id: m.id,
+                                      label: m.label,
+                                      category: m.category,
+                                      unit: (m as any).unit || "Inches",
+                                      values: vals,
+                                      customFields: []
+                                    });
+                                    setView("edit_measurement");
+                                  }}
+                                  className="p-1.5 rounded-md hover:bg-muted text-foreground"
+                                  title="Edit"
+                                >
+                                  <Edit2 size={12} />
+                                </button>
+                              </>
+                            )}
+                            <button
+                              onClick={() => confirmDeleteMeasurement(m.id)}
+                              className="p-1.5 rounded-md hover:bg-red-500/10 text-red-500"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+                        {!isImageRecord && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setLocation(`/fabric-requirement`); }}
+                            className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-bold bg-violet-500/5 border border-violet-500/15 text-violet-500 hover:bg-violet-500/10 transition-all"
+                          >
+                            <Shirt size={11} /> Estimate fabric for this garment →
+                          </button>
+                        )}
+                      </div>
+                      {isImageRecord ? (
+                        <div className="overflow-hidden">
+                          <img src={vals.__image__ as string} alt={m.label} className="w-full max-h-64 object-cover" />
+                        </div>
+                      ) : (
+                        <>
+                          <div className="p-4 grid grid-cols-2 gap-x-6 gap-y-2">
+                            {Object.entries(vals).filter(([k]) => !k.startsWith('_')).map(([k, v]) => (
+                              <div key={k} className="flex justify-between border-b border-border/30 pb-1.5">
+                                <span className="text-[10px] text-muted-foreground font-medium">{k}</span>
+                                <span className="text-[10px] font-bold">{v as string}{(m as any).unit === "CM" ? "cm" : '"'}</span>
+                              </div>
+                            ))}
+                          </div>
+                          {vals._refImage && typeof vals._refImage === 'string' && (
+                            <div className="px-4 pb-4">
+                              <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1.5">Reference Photo</p>
+                              <div className="rounded-xl overflow-hidden border border-border">
+                                <img src={vals._refImage as string} alt="Reference" className="w-full max-h-36 object-cover" />
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            )}
+
+            <button
+              onClick={() => confirmDeleteCustomer(selectedCustomer.id)}
+              className="w-full py-3 text-xs font-bold text-red-500/40 hover:text-red-500 transition-colors"
+            >
+              Delete Client Profile
+            </button>
+          </div>
+        )}
+
+        {/* ── 4. ADD MEASUREMENT (stepped: unit → template → fields) ─────────── */}
+        {view === "add_measurement" && selectedCustomer && (
+          <div className="space-y-4 animate-in fade-in duration-300">
+
+            {/* Step breadcrumb */}
+            <div className="flex gap-1.5 px-1">
+              {(["unit", "template", "fields"] as const).map((s, i) => (
+                <div key={s} className={`flex-1 h-1 rounded-full transition-all duration-300 ${
+                  measureAddStep === s ? "bg-primary" :
+                  ["unit","template","fields"].indexOf(measureAddStep) > i ? "bg-primary/40" : "bg-muted"
+                }`} />
+              ))}
+            </div>
+
+            {/* ── Sub-step 1: Unit ─────────────────────────────────────────── */}
+            {measureAddStep === "unit" && (
+              <div className="bg-card border border-border rounded-3xl p-6 space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-1.5 block">Record Name</label>
+                  <input
+                    placeholder="e.g. Wedding Suit, School Uniform..."
+                    value={measurementForm.label}
+                    onChange={e => setMeasurementForm({ ...measurementForm, label: e.target.value })}
+                    className={inp}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-3 block">
+                    Choose Measurement Unit
+                  </label>
+                  <div className="grid grid-cols-2 gap-4">
+                    {(["Inches", "CM"] as const).map(u => (
+                      <button
+                        key={u}
+                        type="button"
+                        onClick={() => {
+                          setMeasurementForm({ ...measurementForm, unit: u });
+                          setTimeout(() => setMeasureAddStep("template"), 200);
+                        }}
+                        className={`py-8 rounded-2xl border-2 text-base font-black transition-all active:scale-95 ${
+                          measurementForm.unit === u
+                            ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/25"
+                            : "bg-card border-border text-foreground hover:border-primary/40"
+                        }`}
+                      >
+                        {u}
+                        <span className="block text-[10px] mt-1 font-normal opacity-70">{u === "Inches" ? "12\" = 1 ft" : "30cm = 1 ft"}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center mt-4">Tap a unit to continue →</p>
+                </div>
+              </div>
+            )}
+
+            {/* ── Sub-step 2: Template ─────────────────────────────────────── */}
+            {measureAddStep === "template" && (
+              <div className="bg-card border border-border rounded-3xl p-6 space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-full border border-primary/20 uppercase tracking-widest">
+                    {measurementForm.unit}
+                  </span>
+                  <div className="flex items-center justify-between flex-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Choose Template</label>
+                    <button
+                      type="button"
+                      onClick={() => setLocation("/measurement-templates")}
+                      className="text-[10px] font-bold text-primary flex items-center gap-1"
+                    >
+                      <SlidersHorizontal size={11} /> Manage
+                    </button>
+                  </div>
+                </div>
+
+                {/* System templates */}
+                {Object.entries(SYSTEM_TEMPLATES_META).filter(([, m]) => {
+                  const g = selectedCustomer.gender;
+                  return g === "others" || m.gender === "both" || m.gender === g;
+                }).length > 0 && (
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 mb-2">System Templates</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.entries(SYSTEM_TEMPLATES_META)
+                        .filter(([, m]) => {
+                          const g = selectedCustomer.gender;
+                          return g === "others" || m.gender === "both" || m.gender === g;
+                        })
+                        .map(([cat, m]) => (
+                          <button
+                            key={cat}
+                            type="button"
+                            onClick={() => {
+                              setMeasurementForm({ ...measurementForm, category: cat, values: {} });
+                              setTimeout(() => setMeasureAddStep("fields"), 200);
+                            }}
+                            className="p-3 text-left rounded-xl border text-xs font-bold transition-all active:scale-95 bg-muted/20 border-border text-muted-foreground hover:border-primary/40 hover:bg-primary/5"
+                          >
+                            <span className="block">{cat}</span>
+                            <span className="text-[9px] font-normal opacity-50">{m.fields.length} fields</span>
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Custom templates */}
+                {filteredCategories.filter(c => !SYSTEM_TEMPLATES_META[c]).length > 0 && (
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 mb-2">My Templates</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {filteredCategories.filter(c => !SYSTEM_TEMPLATES_META[c]).map(cat => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => {
+                            setMeasurementForm({ ...measurementForm, category: cat, values: {} });
+                            setTimeout(() => setMeasureAddStep("fields"), 200);
+                          }}
+                          className="p-3 text-left rounded-xl border text-xs font-bold transition-all active:scale-95 bg-amber-500/10 border-amber-500/20 text-amber-600 hover:bg-amber-500/20"
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setMeasureAddStep("unit")}
+                  className="w-full py-2.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  ← Change Unit
+                </button>
+              </div>
+            )}
+
+            {/* ── Sub-step 3: Fields ───────────────────────────────────────── */}
+            {measureAddStep === "fields" && measurementForm.category && (
+              <form onSubmit={handleSaveMeasurement} className="bg-card border border-border rounded-3xl p-6 space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                {/* Summary chips */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2.5 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-full border border-primary/20 uppercase tracking-widest">{measurementForm.unit}</span>
+                  <span className="px-2.5 py-1 bg-muted text-foreground text-[10px] font-bold rounded-full border border-border">{measurementForm.category}</span>
+                  <button type="button" onClick={() => setMeasureAddStep("template")} className="text-[10px] text-primary font-bold ml-auto">Change</button>
+                </div>
+
+                {/* Copy from last */}
+                {measurements.some(m => m.category === measurementForm.category) && (
+                  <button
+                    type="button"
+                    onClick={() => copyFromLastMeasurement(measurementForm.category)}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[10px] font-bold bg-amber-500/5 border border-amber-500/15 text-amber-600 hover:bg-amber-500/10 transition-all"
+                  >
+                    <RefreshCw size={10} /> Copy from last "{measurementForm.category}"
+                  </button>
+                )}
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-1.5 block">Record Name</label>
+                  <input
+                    placeholder="e.g. Wedding Suit"
+                    value={measurementForm.label}
+                    onChange={e => setMeasurementForm({ ...measurementForm, label: e.target.value })}
+                    className={inp}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 mb-3">Measurements ({measurementForm.unit})</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    {getTemplateFields(measurementForm.category).map(field => (
+                      <div key={field}>
+                        <label className="text-[10px] font-bold text-muted-foreground mb-1.5 block">{field}</label>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0.0"
+                          value={measurementForm.values[field] || ""}
+                          onChange={e => setMeasurementForm({ ...measurementForm, values: { ...measurementForm.values, [field]: e.target.value } })}
+                          className={`${inp} py-2.5`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Extra fields */}
+                <div className="space-y-3 pt-2 border-t border-border/50">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-primary">Extra Fields</p>
+                    <button
+                      type="button"
+                      onClick={() => setMeasurementForm({ ...measurementForm, customFields: [...measurementForm.customFields, { name: "", value: "" }] })}
+                      className="text-[10px] font-bold text-primary flex items-center gap-1"
+                    >
+                      <Plus size={12} /> Add
+                    </button>
+                  </div>
+                  {customMeasurementFields.filter(f => !getTemplateFields(measurementForm.category).includes(f)).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {customMeasurementFields.filter(f => !getTemplateFields(measurementForm.category).includes(f)).map(f => (
+                        <button key={f} type="button"
+                          onClick={() => { if (!measurementForm.customFields.some(cf => cf.name === f)) setMeasurementForm({ ...measurementForm, customFields: [...measurementForm.customFields, { name: f, value: "" }] }); }}
+                          className="px-2 py-1 rounded-lg bg-muted/40 text-[10px] text-muted-foreground hover:bg-muted border border-border transition-all">
+                          + {f}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {measurementForm.customFields.map((cf, idx) => (
+                    <div key={idx} className="flex gap-2 items-end">
+                      <div className="flex-1">
+                        <input placeholder="Field Name" value={cf.name}
+                          onChange={e => { const nf = [...measurementForm.customFields]; nf[idx].name = e.target.value; setMeasurementForm({ ...measurementForm, customFields: nf }); }}
+                          className={`${inp} py-2 text-xs`} />
+                      </div>
+                      <div className="flex-1">
+                        <input placeholder="Value" value={cf.value}
+                          onChange={e => { const nf = [...measurementForm.customFields]; nf[idx].value = e.target.value; setMeasurementForm({ ...measurementForm, customFields: nf }); }}
+                          className={`${inp} py-2 text-xs`} />
+                      </div>
+                      <button type="button" onClick={() => setMeasurementForm({ ...measurementForm, customFields: measurementForm.customFields.filter((_, i) => i !== idx) })} className="p-2.5 text-red-500">
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {loading ? "Saving..." : "Save Record"}
+                  {!loading && <CheckCircle2 size={18} />}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+
+        {/* ── 4b. EDIT MEASUREMENT (all-at-once) ──────────────────────────────── */}
+        {view === "edit_measurement" && selectedCustomer && (
+          <form onSubmit={handleSaveMeasurement} className="bg-card border border-border rounded-3xl p-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <div className="space-y-5">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-1.5 block">Record Name *</label>
+                <input placeholder="e.g. Wedding Suit" value={measurementForm.label} onChange={e => setMeasurementForm({ ...measurementForm, label: e.target.value })} className={inp} required />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-1.5 block">Unit</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(["Inches", "CM"] as const).map(u => (
+                    <button key={u} type="button" onClick={() => setMeasurementForm({ ...measurementForm, unit: u })}
+                      className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${measurementForm.unit === u ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground"}`}>
+                      {u}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {measurementForm.category && (
+                <div className="space-y-6 pt-4 border-t border-border">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    Template: <span className="text-primary">{measurementForm.category}</span>
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    {getTemplateFields(measurementForm.category).map(field => (
+                      <div key={field}>
+                        <label className="text-[10px] font-bold text-muted-foreground mb-1.5 block">{field}</label>
+                        <input type="text" inputMode="decimal" placeholder="0.0" value={measurementForm.values[field] || ""}
+                          onChange={e => setMeasurementForm({ ...measurementForm, values: { ...measurementForm.values, [field]: e.target.value } })}
+                          className={`${inp} py-2.5`} />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-3 pt-4 border-t border-border/50">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-primary">Extra Fields</p>
+                      <button type="button" onClick={() => setMeasurementForm({ ...measurementForm, customFields: [...measurementForm.customFields, { name: "", value: "" }] })} className="text-[10px] font-bold text-primary flex items-center gap-1">
+                        <Plus size={12} /> Add Field
+                      </button>
+                    </div>
+                    {measurementForm.customFields.map((cf, idx) => (
+                      <div key={idx} className="flex gap-2 items-end">
+                        <div className="flex-1">
+                          <input placeholder="Field Name" value={cf.name}
+                            onChange={e => { const nf = [...measurementForm.customFields]; nf[idx].name = e.target.value; setMeasurementForm({ ...measurementForm, customFields: nf }); }}
+                            className={`${inp} py-2 text-xs`} />
+                        </div>
+                        <div className="flex-1">
+                          <input placeholder="Value" value={cf.value}
+                            onChange={e => { const nf = [...measurementForm.customFields]; nf[idx].value = e.target.value; setMeasurementForm({ ...measurementForm, customFields: nf }); }}
+                            className={`${inp} py-2 text-xs`} />
+                        </div>
+                        <button type="button" onClick={() => setMeasurementForm({ ...measurementForm, customFields: measurementForm.customFields.filter((_, i) => i !== idx) })} className="p-2.5 text-red-500">
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            {/* Reference Image */}
+            <div className="space-y-3 border-t border-border/50 pt-5">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Reference Image</p>
+                {editRefImage && (
+                  <button type="button" onClick={() => setEditRefImage(null)} className="text-[10px] font-bold text-red-500">Remove</button>
+                )}
+              </div>
+              {editRefImage ? (
+                <div className="relative rounded-2xl overflow-hidden border border-border">
+                  <img src={editRefImage} alt="Reference" className="w-full max-h-44 object-cover" />
+                  <button type="button" onClick={() => editRefImageRef.current?.click()}
+                    className="absolute bottom-2 right-2 px-3 py-1.5 bg-black/60 rounded-xl text-white text-[10px] font-bold">
+                    Change
+                  </button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => editRefImageRef.current?.click()}
+                  disabled={editRefImageLoading}
+                  className="w-full py-7 rounded-2xl border-2 border-dashed border-border hover:border-primary/40 flex flex-col items-center gap-2 text-muted-foreground transition-all active:scale-[0.98]">
+                  {editRefImageLoading ? (
+                    <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin border-primary" />
+                  ) : (
+                    <>
+                      <Camera size={24} className="opacity-30" />
+                      <span className="text-xs font-bold">Add Reference Photo</span>
+                    </>
+                  )}
+                </button>
+              )}
+              <input ref={editRefImageRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]; if (!file) return;
+                  setEditRefImageLoading(true);
+                  try {
+                    const compressed = await new Promise<string>((resolve, reject) => {
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        const img = new Image();
+                        img.onload = () => {
+                          let w = img.width, h = img.height;
+                          const MAX = 900;
+                          if (w > MAX || h > MAX) { if (w > h) { h = Math.round(h * MAX / w); w = MAX; } else { w = Math.round(w * MAX / h); h = MAX; } }
+                          const canvas = document.createElement("canvas");
+                          canvas.width = w; canvas.height = h;
+                          const ctx = canvas.getContext("2d")!;
+                          ctx.drawImage(img, 0, 0, w, h);
+                          resolve(canvas.toDataURL("image/jpeg", 0.72));
+                        };
+                        img.onerror = reject;
+                        img.src = ev.target!.result as string;
+                      };
+                      reader.onerror = reject;
+                      reader.readAsDataURL(file);
+                    });
+                    setEditRefImage(compressed);
+                  } catch { toast({ title: "Error", description: "Failed to process image.", variant: "destructive" }); }
+                  finally { setEditRefImageLoading(false); if (editRefImageRef.current) editRefImageRef.current.value = ""; }
+                }}
+              />
+            </div>
+
+            <button type="submit" disabled={loading || !measurementForm.category}
+              className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+              {loading ? "Saving..." : "Update Record"}
+              {!loading && <CheckCircle2 size={18} />}
+            </button>
+          </form>
+        )}
+
+        {/* ── 5. UPLOAD MEASUREMENT IMAGE ──────────────────────────────────── */}
+        {view === "upload_measurement_image" && selectedCustomer && (
+          <div className="space-y-5 animate-in fade-in duration-300">
+            <div className="p-4 bg-primary/5 border border-primary/10 rounded-2xl">
+              <p className="text-xs text-muted-foreground">
+                Uploading photo for <span className="font-bold text-foreground">{selectedCustomer.name}</span>
+              </p>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-1.5 block">Label</label>
+              <input
+                value={uploadImgLabel}
+                onChange={e => setUploadImgLabel(e.target.value)}
+                placeholder="e.g. Shirt measurements, Body photo..."
+                className={`${inp} py-3`}
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-1.5 block">Photo *</label>
+              {uploadImgData ? (
+                <div className="relative rounded-2xl overflow-hidden border border-border group">
+                  <img src={uploadImgData} alt="Measurement" className="w-full max-h-72 object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setUploadImgData(null)}
+                    className="absolute top-2 right-2 w-8 h-8 bg-black/60 rounded-full flex items-center justify-center text-white"
+                  >
+                    <X size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => uploadImgFileRef.current?.click()}
+                    className="absolute bottom-2 right-2 px-3 py-1.5 bg-black/60 rounded-xl text-white text-[10px] font-bold"
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => uploadImgFileRef.current?.click()}
+                  disabled={uploadImgLoading}
+                  className="w-full py-12 rounded-2xl border-2 border-dashed border-border hover:border-primary/40 flex flex-col items-center gap-3 text-muted-foreground hover:text-foreground transition-all active:scale-[0.98] disabled:opacity-50"
+                >
+                  {uploadImgLoading ? (
+                    <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin border-primary" />
+                  ) : (
+                    <>
+                      <Camera size={32} className="opacity-30" />
+                      <span className="text-sm font-bold">Tap to add photo</span>
+                      <span className="text-[10px] opacity-50">JPG · PNG · WEBP</span>
+                    </>
+                  )}
+                </button>
+              )}
+              <input
+                ref={uploadImgFileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setUploadImgLoading(true);
+                  try {
+                    const compressed = await new Promise<string>((resolve, reject) => {
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        const img = new Image();
+                        img.onload = () => {
+                          let w = img.width, h = img.height;
+                          const MAX = 900;
+                          if (w > MAX || h > MAX) {
+                            if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+                            else { w = Math.round(w * MAX / h); h = MAX; }
+                          }
+                          const canvas = document.createElement("canvas");
+                          canvas.width = w; canvas.height = h;
+                          const ctx = canvas.getContext("2d")!;
+                          ctx.drawImage(img, 0, 0, w, h);
+                          resolve(canvas.toDataURL("image/jpeg", 0.72));
+                        };
+                        img.onerror = reject;
+                        img.src = ev.target!.result as string;
+                      };
+                      reader.onerror = reject;
+                      reader.readAsDataURL(file);
+                    });
+                    setUploadImgData(compressed);
+                  } catch { toast({ title: "Error", description: "Failed to process image.", variant: "destructive" }); }
+                  finally { setUploadImgLoading(false); if (uploadImgFileRef.current) uploadImgFileRef.current.value = ""; }
+                }}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => { setUploadImgData(null); setView(selectedCustomer ? "client_detail" : "clients"); }}
+                className="py-3.5 rounded-2xl border border-border text-sm font-bold text-muted-foreground hover:bg-muted transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!uploadImgData || loading}
+                onClick={async () => {
+                  if (!uploadImgData || !selectedCustomer) return;
+                  setLoading(true);
+                  try {
+                    const res = await fetch("/api/tailoring/measurements", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        customerId: selectedCustomer.id,
+                        label: uploadImgLabel.trim() || "Measurement Photo",
+                        category: "Image Upload",
+                        unit: "Inches",
+                        values: { __image__: uploadImgData }
+                      })
+                    });
+                    if (res.ok) {
+                      toast({ title: "Saved", description: "Photo saved as measurement record." });
+                      fetchMeasurements(selectedCustomer.id);
+                      setUploadImgData(null);
+                      setView("client_detail");
+                    } else {
+                      toast({ title: "Error", description: "Failed to save photo.", variant: "destructive" });
+                    }
+                  } catch { toast({ title: "Error", description: "Connection error.", variant: "destructive" }); }
+                  finally { setLoading(false); }
+                }}
+                className="py-3.5 rounded-2xl bg-primary text-primary-foreground text-sm font-bold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {loading ? "Saving..." : <><Upload size={15} /> Save Photo</>}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── 6. PREMIUM TEASER ────────────────────────────────────────────── */}
+        {(view === "clients" || view === "client_detail") && (
+          isPremium ? (
+            <div className="mt-12 p-6 rounded-3xl bg-primary/5 border border-primary/10 space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <div className="flex items-center gap-3 text-primary">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><Crown size={20} /></div>
+                <h3 className="text-sm font-black uppercase tracking-wider">Unlock OneTailor Pro</h3>
+              </div>
+              <p className="text-xs text-foreground font-medium leading-relaxed opacity-80">{proUpgradeMessage}</p>
+              <a
+                href={proUpgradeLink || "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold text-xs shadow-lg shadow-primary/20 hover:scale-[1.01] active:scale-95 transition-all"
+              >
+                <ExternalLink size={14} />
+                {proUpgradeButtonText}
+              </a>
+            </div>
+          ) : (
+            <div className="mt-12 p-6 rounded-3xl bg-amber-500/5 border border-amber-500/10 space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <div className="flex items-center gap-3 text-amber-600">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center"><ShieldCheck size={20} /></div>
+                <h3 className="text-sm font-black uppercase tracking-wider">{proUpgradeTitle || "Unlock Premium"}</h3>
+              </div>
+              <p className="text-xs text-foreground font-medium leading-relaxed opacity-80">
+                {proUpgradeMessage || "Unlock professional features: unlimited client records, full measurement history, custom templates, and advanced tailoring tools."}
+              </p>
+              <button
+                onClick={() => setLocation("/pre-unlock")}
+                className="flex items-center justify-center gap-2 w-full py-4 bg-amber-500 text-amber-950 rounded-2xl font-bold text-xs shadow-lg shadow-amber-500/20 hover:scale-[1.01] active:scale-95 transition-all"
+              >
+                <Crown size={14} /> {proUpgradeButtonText || "Unlock Premium Now"}
+              </button>
+            </div>
+          )
+        )}
+
+      </div>
+    </div>
+  );
+}
