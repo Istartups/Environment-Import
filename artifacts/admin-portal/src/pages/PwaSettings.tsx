@@ -13,7 +13,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 import {
   Loader2,
   Save,
@@ -28,7 +27,12 @@ import {
   ImageIcon,
   Upload,
   X,
-  Home,
+  Info,
+  Star,
+  Shield,
+  FileText,
+  Phone,
+  ExternalLink,
 } from "lucide-react";
 
 interface PwaInfo {
@@ -59,6 +63,13 @@ interface PwaInfo {
   pwaLogoData: string;
   pwaFaviconData: string;
   pwaSplashData: string;
+  pwaAboutTagline: string;
+  pwaAboutVersion: string;
+  pwaAboutPrivacyUrl: string;
+  pwaAboutTermsUrl: string;
+  pwaAboutContactUrl: string;
+  pwaAboutRateUrl: string;
+  pwaAboutCopyright: string;
 }
 
 const DEFAULT: PwaInfo = {
@@ -89,7 +100,77 @@ const DEFAULT: PwaInfo = {
   pwaLogoData: "",
   pwaFaviconData: "",
   pwaSplashData: "",
+  pwaAboutTagline: "",
+  pwaAboutVersion: "",
+  pwaAboutPrivacyUrl: "",
+  pwaAboutTermsUrl: "",
+  pwaAboutContactUrl: "",
+  pwaAboutRateUrl: "",
+  pwaAboutCopyright: "",
 };
+
+function PhonePreview({ settings }: { settings: PwaInfo }) {
+  return (
+    <div className="relative select-none">
+      <div className="w-48 h-96 rounded-[2.5rem] border-[6px] border-slate-700 bg-slate-800 shadow-2xl overflow-hidden flex flex-col">
+        <div className="h-7 bg-slate-900 flex items-center justify-between px-4 shrink-0">
+          <span className="text-[8px] text-white font-bold">9:41</span>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-1.5 rounded-sm bg-white/60" />
+            <div className="w-1.5 h-1.5 rounded-full bg-white/60" />
+            <div className="w-2 h-1.5 rounded-sm border border-white/60 flex items-center pr-px">
+              <div className="w-full h-full bg-white/60 rounded-sm" />
+            </div>
+          </div>
+        </div>
+        <div
+          className="flex-1 p-4 flex flex-col items-start gap-4 relative"
+          style={{ background: settings.pwaBackgroundColor || "#1a1a2e" }}
+        >
+          <div
+            className="absolute inset-0 opacity-5 pointer-events-none"
+            style={{
+              backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)",
+              backgroundSize: "12px 12px",
+            }}
+          />
+          <div className="flex flex-wrap gap-3 mt-2 relative z-10">
+            <div className="flex flex-col items-center gap-1">
+              <div
+                className="w-12 h-12 rounded-[14px] flex items-center justify-center overflow-hidden shadow-lg border border-white/10"
+                style={{ background: settings.pwaThemeColor || "#6D28D9" }}
+              >
+                {settings.pwaLogoData ? (
+                  <img src={settings.pwaLogoData} className="w-full h-full object-contain p-1" alt="app icon" />
+                ) : (
+                  <Smartphone className="w-6 h-6 text-white" />
+                )}
+              </div>
+              <span className="text-[7px] text-white font-semibold text-center leading-tight max-w-[48px] truncate drop-shadow">
+                {settings.pwaShortName || settings.pwaName || "OneTailor"}
+              </span>
+            </div>
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex flex-col items-center gap-1">
+                <div className="w-12 h-12 rounded-[14px] bg-slate-600/50" />
+                <div className="w-8 h-1.5 bg-white/20 rounded-full" />
+              </div>
+            ))}
+          </div>
+          <div className="absolute bottom-3 left-3 right-3 h-16 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-around px-2">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="w-10 h-10 rounded-[12px] bg-white/20" />
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="absolute top-[6px] left-1/2 -translate-x-1/2 w-16 h-4 bg-slate-900 rounded-b-2xl z-10" />
+      <div className="absolute right-[-10px] top-20 w-1.5 h-12 bg-slate-600 rounded-r-full" />
+      <div className="absolute left-[-10px] top-16 w-1.5 h-8 bg-slate-600 rounded-l-full" />
+      <div className="absolute left-[-10px] top-28 w-1.5 h-8 bg-slate-600 rounded-l-full" />
+    </div>
+  );
+}
 
 export default function PwaSettings() {
   const [settings, setSettings] = useState<PwaInfo>(DEFAULT);
@@ -151,6 +232,13 @@ export default function PwaSettings() {
           pwaLogoData: data.pwaLogoData || "",
           pwaFaviconData: data.pwaFaviconData || "",
           pwaSplashData: data.pwaSplashData || "",
+          pwaAboutTagline: data.pwaAboutTagline || "",
+          pwaAboutVersion: data.pwaAboutVersion || "",
+          pwaAboutPrivacyUrl: data.pwaAboutPrivacyUrl || "",
+          pwaAboutTermsUrl: data.pwaAboutTermsUrl || "",
+          pwaAboutContactUrl: data.pwaAboutContactUrl || "",
+          pwaAboutRateUrl: data.pwaAboutRateUrl || "",
+          pwaAboutCopyright: data.pwaAboutCopyright || "",
         });
       }
     } catch {
@@ -194,6 +282,13 @@ export default function PwaSettings() {
         pwaLogoData: settings.pwaLogoData,
         pwaFaviconData: settings.pwaFaviconData,
         pwaSplashData: settings.pwaSplashData,
+        pwaAboutTagline: settings.pwaAboutTagline,
+        pwaAboutVersion: settings.pwaAboutVersion,
+        pwaAboutPrivacyUrl: settings.pwaAboutPrivacyUrl,
+        pwaAboutTermsUrl: settings.pwaAboutTermsUrl,
+        pwaAboutContactUrl: settings.pwaAboutContactUrl,
+        pwaAboutRateUrl: settings.pwaAboutRateUrl,
+        pwaAboutCopyright: settings.pwaAboutCopyright,
       };
       const res = await authFetch("/api/payment-info", {
         method: "PUT",
@@ -249,7 +344,6 @@ export default function PwaSettings() {
               <Card className="rounded-3xl border-border bg-card overflow-hidden">
                 <CardContent className="p-6 space-y-6">
 
-                  {/* Usage limits */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <div className="flex items-center justify-between px-1">
@@ -308,7 +402,6 @@ export default function PwaSettings() {
                     </div>
                   </div>
 
-                  {/* Free User Teaser */}
                   <div className="border-t border-border/50 pt-6 space-y-4">
                     <h3 className="text-sm font-bold text-primary flex items-center gap-2">
                       <ShieldCheck className="w-4 h-4 text-amber-400" /> Free User Upgrade Teaser
@@ -330,7 +423,6 @@ export default function PwaSettings() {
                     </div>
                   </div>
 
-                  {/* Premium Welcome */}
                   <div className="border-t border-border/50 pt-6 space-y-4">
                     <h3 className="text-sm font-bold text-primary flex items-center gap-2">
                       <Crown className="w-4 h-4 text-amber-500" /> Premium Welcome Message
@@ -348,7 +440,6 @@ export default function PwaSettings() {
                     </div>
                   </div>
 
-                  {/* Pro Upgrade */}
                   <div className="border-t border-border/50 pt-6 space-y-4">
                     <h3 className="text-sm font-bold text-primary flex items-center gap-2">
                       <Zap className="w-4 h-4" /> Pro Upgrade Teaser
@@ -389,12 +480,11 @@ export default function PwaSettings() {
                             <SelectItem value="monthly">Once per month</SelectItem>
                           </SelectContent>
                         </Select>
-                        <p className="text-[10px] text-muted-foreground px-1">Controls how often the Pro teaser footer shows for Premium users. The free-user teaser always shows regardless.</p>
+                        <p className="text-[10px] text-muted-foreground px-1">Controls how often the Pro teaser footer shows for Premium users.</p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Pending Banner */}
                   <div className="border-t border-border/50 pt-6 space-y-4">
                     <h3 className="text-sm font-bold text-primary flex items-center gap-2">
                       <Zap className="w-4 h-4" /> Payment Pending Banner
@@ -416,7 +506,6 @@ export default function PwaSettings() {
                     </div>
                   </div>
 
-                  {/* Admin Notification */}
                   <div className="border-t border-border/50 pt-6 space-y-4">
                     <h3 className="text-sm font-bold text-primary flex items-center gap-2">
                       <Zap className="w-4 h-4" /> Admin Payment Notification
@@ -431,7 +520,6 @@ export default function PwaSettings() {
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">Notification Message Template</label>
                       <Textarea value={settings.adminNotificationMessage || ""} onChange={(e) => setSettings({ ...settings, adminNotificationMessage: e.target.value })} className="min-h-[80px] rounded-xl bg-muted/30 border-border font-medium leading-relaxed text-foreground" placeholder="e.g. New payment submitted by {name}." />
-                      <p className="text-[10px] text-muted-foreground px-1">Use {"{{name}}"} for the user's business name.</p>
                     </div>
                   </div>
                 </CardContent>
@@ -439,7 +527,7 @@ export default function PwaSettings() {
 
               <div className="flex justify-end pt-2">
                 <Button type="submit" disabled={saving} className="rounded-2xl px-8 h-12 bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">
-                  {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Globe className="w-4 h-4 mr-2" />}
                   Save System Config
                 </Button>
               </div>
@@ -447,219 +535,352 @@ export default function PwaSettings() {
           </section>
         </TabsContent>
 
-        {/* ── PWA Branding ───────────────────────────────────────── */}
-        <TabsContent value="pwa" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-          <section className="space-y-4">
-            <h2 className="text-xl font-bold flex items-center gap-2 text-foreground">
-              <Smartphone className="w-5 h-5 text-primary" /> PWA App Branding
-            </h2>
-            <p className="text-sm text-muted-foreground">Controls the app name, theme colour, and description shown when users install the PWA. Changes take effect on the next app load.</p>
+        {/* ── PWA Tab ─────────────────────────────────────────────── */}
+        <TabsContent value="pwa" className="animate-in fade-in slide-in-from-bottom-2">
+          <form onSubmit={handleSavePWA}>
+            {/* Two-column: phone on left, tabs on right */}
+            <div className="flex flex-col lg:flex-row gap-8 items-start">
 
-            {/* ── Live Phone Preview ─────────────────────────────────── */}
-            <Card className="rounded-3xl border-border bg-card overflow-hidden">
-              <CardHeader className="px-6 pt-6 pb-2">
-                <CardTitle className="text-base font-black flex items-center gap-2">
-                  <Home className="w-4 h-4 text-primary" /> Home Screen Preview
-                </CardTitle>
-                <p className="text-xs text-muted-foreground">Live preview of how the app appears on a device home screen.</p>
-              </CardHeader>
-              <CardContent className="p-6 flex justify-center">
-                <div className="relative">
-                  {/* Phone shell */}
-                  <div className="w-48 h-96 rounded-[2.5rem] border-[6px] border-slate-700 bg-slate-800 shadow-2xl overflow-hidden flex flex-col">
-                    {/* Status bar */}
-                    <div className="h-7 bg-slate-900 flex items-center justify-between px-4 shrink-0">
-                      <span className="text-[8px] text-white font-bold">9:41</span>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-1.5 rounded-sm bg-white/60" />
-                        <div className="w-1.5 h-1.5 rounded-full bg-white/60" />
-                        <div className="w-2 h-1.5 rounded-sm border border-white/60 flex items-center pr-px"><div className="w-full h-full bg-white/60 rounded-sm" /></div>
-                      </div>
-                    </div>
-                    {/* Home screen */}
-                    <div
-                      className="flex-1 p-4 flex flex-col items-start gap-4"
-                      style={{ background: settings.pwaBackgroundColor || "#1a1a2e" }}
-                    >
-                      {/* Wallpaper dot grid */}
-                      <div className="absolute inset-0 opacity-5 pointer-events-none"
-                        style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "12px 12px" }} />
-                      {/* App icon grid row */}
-                      <div className="flex flex-wrap gap-3 mt-2 relative z-10">
-                        {/* Our PWA icon */}
-                        <div className="flex flex-col items-center gap-1">
-                          <div
-                            className="w-12 h-12 rounded-[14px] flex items-center justify-center overflow-hidden shadow-lg border border-white/10"
-                            style={{ background: settings.pwaThemeColor || "#6D28D9" }}
-                          >
-                            {settings.pwaLogoData ? (
-                              <img src={settings.pwaLogoData} className="w-full h-full object-contain p-1" alt="app icon" />
-                            ) : (
-                              <Smartphone className="w-6 h-6 text-white" />
-                            )}
-                          </div>
-                          <span className="text-[7px] text-white font-semibold text-center leading-tight max-w-[48px] truncate drop-shadow">
-                            {settings.pwaShortName || settings.pwaName || "OneTailor"}
-                          </span>
-                        </div>
-                        {/* Placeholder app icons */}
-                        {[...Array(5)].map((_, i) => (
-                          <div key={i} className="flex flex-col items-center gap-1">
-                            <div className={`w-12 h-12 rounded-[14px] bg-slate-600/50`} />
-                            <div className="w-8 h-1.5 bg-white/20 rounded-full" />
-                          </div>
-                        ))}
-                      </div>
-                      {/* Dock */}
-                      <div className="absolute bottom-3 left-3 right-3 h-16 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-around px-2">
-                        {[...Array(4)].map((_, i) => (
-                          <div key={i} className="w-10 h-10 rounded-[12px] bg-white/20" />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  {/* Notch */}
-                  <div className="absolute top-[6px] left-1/2 -translate-x-1/2 w-16 h-4 bg-slate-900 rounded-b-2xl z-10" />
-                  {/* Side button */}
-                  <div className="absolute right-[-10px] top-20 w-1.5 h-12 bg-slate-600 rounded-r-full" />
-                  <div className="absolute left-[-10px] top-16 w-1.5 h-8 bg-slate-600 rounded-l-full" />
-                  <div className="absolute left-[-10px] top-28 w-1.5 h-8 bg-slate-600 rounded-l-full" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <form onSubmit={handleSavePWA} className="space-y-6">
-              <Card className="rounded-3xl border-border bg-card overflow-hidden">
-                <CardContent className="p-6 space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">App Name</label>
-                      <Input value={settings.pwaName} onChange={(e) => setSettings({ ...settings, pwaName: e.target.value })} placeholder="OneTailor Toolkit" className="h-12 rounded-xl bg-muted/30 border-border font-bold text-foreground" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">Short Name (home screen)</label>
-                      <Input value={settings.pwaShortName} onChange={(e) => setSettings({ ...settings, pwaShortName: e.target.value })} placeholder="OneTailor" className="h-12 rounded-xl bg-muted/30 border-border font-bold text-foreground" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">Theme Colour</label>
-                      <div className="flex items-center gap-3">
-                        <input type="color" value={settings.pwaThemeColor || "#6D28D9"} onChange={(e) => setSettings({ ...settings, pwaThemeColor: e.target.value })} className="w-12 h-12 rounded-xl border border-border cursor-pointer bg-transparent" />
-                        <Input value={settings.pwaThemeColor} onChange={(e) => setSettings({ ...settings, pwaThemeColor: e.target.value })} placeholder="#6D28D9" className="h-12 rounded-xl bg-muted/30 border-border font-mono font-bold text-foreground flex-1" />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">Background Colour (splash)</label>
-                      <div className="flex items-center gap-3">
-                        <input type="color" value={settings.pwaBackgroundColor || "#ffffff"} onChange={(e) => setSettings({ ...settings, pwaBackgroundColor: e.target.value })} className="w-12 h-12 rounded-xl border border-border cursor-pointer bg-transparent" />
-                        <Input value={settings.pwaBackgroundColor} onChange={(e) => setSettings({ ...settings, pwaBackgroundColor: e.target.value })} placeholder="#ffffff" className="h-12 rounded-xl bg-muted/30 border-border font-mono font-bold text-foreground flex-1" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">App Description</label>
-                    <Textarea value={settings.pwaDescription} onChange={(e) => setSettings({ ...settings, pwaDescription: e.target.value })} placeholder="All the tools a tailor needs, in one place." className="min-h-[80px] rounded-xl bg-muted/30 border-border font-medium leading-relaxed text-foreground" />
-                  </div>
-                  <div className="rounded-2xl bg-primary/5 border border-primary/10 p-4 text-xs text-muted-foreground">
-                    <span className="font-bold text-primary">Live manifest URL: </span>
-                    <code className="font-mono">/api/pwa-manifest</code> — browsers fetch this dynamically on each install.
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Branding Assets */}
-              <Card className="rounded-3xl border-border bg-card overflow-hidden">
-                <CardHeader className="px-6 pt-6 pb-2">
-                  <CardTitle className="text-base font-black flex items-center gap-2">
-                    <ImageIcon className="w-4 h-4 text-primary" /> Branding Assets
-                  </CardTitle>
-                  <p className="text-xs text-muted-foreground">Upload a logo, favicon, and splash screen for the PWA.</p>
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  {/* App Logo */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">App Logo (512×512 recommended)</label>
-                    <div className="flex items-center gap-4">
-                      <div className="w-20 h-20 rounded-2xl border-2 border-dashed border-border bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
-                        {settings.pwaLogoData ? <img src={settings.pwaLogoData} className="w-full h-full object-contain" /> : <ImageIcon className="w-8 h-8 text-muted-foreground/30" />}
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <Button type="button" variant="outline" size="sm" onClick={() => logoFileRef.current?.click()} className="rounded-xl h-9 font-bold">
-                          <Upload className="w-4 h-4 mr-2" /> Upload Logo
-                        </Button>
-                        {settings.pwaLogoData && (
-                          <Button type="button" variant="ghost" size="sm" onClick={() => setSettings({ ...settings, pwaLogoData: "" })} className="rounded-xl h-9 text-destructive hover:text-destructive font-bold">
-                            <X className="w-4 h-4 mr-2" /> Remove
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                    <input ref={logoFileRef} type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                      const f = e.target.files?.[0]; if (!f) return;
-                      try { setSettings({ ...settings, pwaLogoData: await compressImage(f, 512) }); } catch {}
-                      e.target.value = "";
-                    }} />
-                  </div>
-
-                  {/* Favicon */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">Favicon (32×32 or 64×64)</label>
-                    <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-xl border-2 border-dashed border-border bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
-                        {settings.pwaFaviconData ? <img src={settings.pwaFaviconData} className="w-full h-full object-contain" /> : <ImageIcon className="w-6 h-6 text-muted-foreground/30" />}
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <Button type="button" variant="outline" size="sm" onClick={() => faviconFileRef.current?.click()} className="rounded-xl h-9 font-bold">
-                          <Upload className="w-4 h-4 mr-2" /> Upload Favicon
-                        </Button>
-                        {settings.pwaFaviconData && (
-                          <Button type="button" variant="ghost" size="sm" onClick={() => setSettings({ ...settings, pwaFaviconData: "" })} className="rounded-xl h-9 text-destructive hover:text-destructive font-bold">
-                            <X className="w-4 h-4 mr-2" /> Remove
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                    <input ref={faviconFileRef} type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                      const f = e.target.files?.[0]; if (!f) return;
-                      try { setSettings({ ...settings, pwaFaviconData: await compressImage(f, 64) }); } catch {}
-                      e.target.value = "";
-                    }} />
-                  </div>
-
-                  {/* Splash */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">Splash Screen (1080×1920 recommended)</label>
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-20 rounded-xl border-2 border-dashed border-border bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
-                        {settings.pwaSplashData ? <img src={settings.pwaSplashData} className="w-full h-full object-cover" /> : <ImageIcon className="w-5 h-8 text-muted-foreground/30" />}
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <Button type="button" variant="outline" size="sm" onClick={() => splashFileRef.current?.click()} className="rounded-xl h-9 font-bold">
-                          <Upload className="w-4 h-4 mr-2" /> Upload Splash
-                        </Button>
-                        {settings.pwaSplashData && (
-                          <Button type="button" variant="ghost" size="sm" onClick={() => setSettings({ ...settings, pwaSplashData: "" })} className="rounded-xl h-9 text-destructive hover:text-destructive font-bold">
-                            <X className="w-4 h-4 mr-2" /> Remove
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                    <input ref={splashFileRef} type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                      const f = e.target.files?.[0]; if (!f) return;
-                      try { setSettings({ ...settings, pwaSplashData: await compressImage(f, 1920) }); } catch {}
-                      e.target.value = "";
-                    }} />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div className="flex justify-end pt-2">
-                <Button type="submit" disabled={saving} className="rounded-2xl px-8 h-12 bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">
-                  {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                  Save PWA Settings
-                </Button>
+              {/* Phone Preview — sticky on desktop */}
+              <div className="lg:sticky lg:top-6 shrink-0 flex flex-col items-center gap-4">
+                <p className="text-[10px] font-black uppercase tracking-wider text-primary/60">Home Screen Preview</p>
+                <PhonePreview settings={settings} />
+                <p className="text-[10px] text-muted-foreground text-center max-w-[12rem] leading-relaxed">
+                  Updates live as you edit the fields on the right.
+                </p>
               </div>
-            </form>
-          </section>
+
+              {/* Right: inner tabs */}
+              <div className="flex-1 min-w-0">
+                <Tabs defaultValue="app-info" className="w-full">
+                  <TabsList className="bg-muted/40 border border-border rounded-2xl p-1 mb-6 flex gap-1">
+                    <TabsTrigger value="app-info" className="flex-1 rounded-xl px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center justify-center gap-2 font-bold text-sm transition-all">
+                      <Globe className="w-3.5 h-3.5" /> App Info
+                    </TabsTrigger>
+                    <TabsTrigger value="app-brand" className="flex-1 rounded-xl px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center justify-center gap-2 font-bold text-sm transition-all">
+                      <ImageIcon className="w-3.5 h-3.5" /> App Brand
+                    </TabsTrigger>
+                    <TabsTrigger value="about" className="flex-1 rounded-xl px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center justify-center gap-2 font-bold text-sm transition-all">
+                      <Info className="w-3.5 h-3.5" /> About
+                    </TabsTrigger>
+                  </TabsList>
+
+                  {/* ── Tab 1: App Info ── */}
+                  <TabsContent value="app-info" className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+                    <Card className="rounded-3xl border-border bg-card overflow-hidden">
+                      <CardContent className="p-6 space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">App Name</label>
+                            <Input
+                              value={settings.pwaName}
+                              onChange={(e) => setSettings({ ...settings, pwaName: e.target.value })}
+                              placeholder="OneTailor Toolkit"
+                              className="h-12 rounded-xl bg-muted/30 border-border font-bold text-foreground"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">Short Name (home screen)</label>
+                            <Input
+                              value={settings.pwaShortName}
+                              onChange={(e) => setSettings({ ...settings, pwaShortName: e.target.value })}
+                              placeholder="OneTailor"
+                              className="h-12 rounded-xl bg-muted/30 border-border font-bold text-foreground"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">Theme Colour</label>
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="color"
+                                value={settings.pwaThemeColor || "#6D28D9"}
+                                onChange={(e) => setSettings({ ...settings, pwaThemeColor: e.target.value })}
+                                className="w-12 h-12 rounded-xl border border-border cursor-pointer bg-transparent"
+                              />
+                              <Input
+                                value={settings.pwaThemeColor}
+                                onChange={(e) => setSettings({ ...settings, pwaThemeColor: e.target.value })}
+                                placeholder="#6D28D9"
+                                className="h-12 rounded-xl bg-muted/30 border-border font-mono font-bold text-foreground flex-1"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">Background Colour (splash)</label>
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="color"
+                                value={settings.pwaBackgroundColor || "#ffffff"}
+                                onChange={(e) => setSettings({ ...settings, pwaBackgroundColor: e.target.value })}
+                                className="w-12 h-12 rounded-xl border border-border cursor-pointer bg-transparent"
+                              />
+                              <Input
+                                value={settings.pwaBackgroundColor}
+                                onChange={(e) => setSettings({ ...settings, pwaBackgroundColor: e.target.value })}
+                                placeholder="#ffffff"
+                                className="h-12 rounded-xl bg-muted/30 border-border font-mono font-bold text-foreground flex-1"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">App Description</label>
+                          <Textarea
+                            value={settings.pwaDescription}
+                            onChange={(e) => setSettings({ ...settings, pwaDescription: e.target.value })}
+                            placeholder="All the tools a tailor needs, in one place."
+                            className="min-h-[80px] rounded-xl bg-muted/30 border-border font-medium leading-relaxed text-foreground"
+                          />
+                        </div>
+                        <div className="rounded-2xl bg-primary/5 border border-primary/10 p-4 text-xs text-muted-foreground">
+                          <span className="font-bold text-primary">Live manifest URL: </span>
+                          <code className="font-mono">/api/pwa-manifest</code> — browsers fetch this dynamically on each install.
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  {/* ── Tab 2: App Brand ── */}
+                  <TabsContent value="app-brand" className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+                    <Card className="rounded-3xl border-border bg-card overflow-hidden">
+                      <CardHeader className="px-6 pt-6 pb-2">
+                        <CardTitle className="text-base font-black flex items-center gap-2">
+                          <ImageIcon className="w-4 h-4 text-primary" /> App Brand
+                        </CardTitle>
+                        <p className="text-xs text-muted-foreground">Upload a logo, favicon, and splash screen for the PWA.</p>
+                      </CardHeader>
+                      <CardContent className="p-6 space-y-6">
+                        {/* App Logo */}
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">App Logo (512×512 recommended)</label>
+                          <div className="flex items-center gap-4">
+                            <div className="w-20 h-20 rounded-2xl border-2 border-dashed border-border bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
+                              {settings.pwaLogoData ? <img src={settings.pwaLogoData} className="w-full h-full object-contain" /> : <ImageIcon className="w-8 h-8 text-muted-foreground/30" />}
+                            </div>
+                            <div className="flex flex-col gap-2">
+                              <Button type="button" variant="outline" size="sm" onClick={() => logoFileRef.current?.click()} className="rounded-xl h-9 font-bold">
+                                <Upload className="w-4 h-4 mr-2" /> Upload Logo
+                              </Button>
+                              {settings.pwaLogoData && (
+                                <Button type="button" variant="ghost" size="sm" onClick={() => setSettings({ ...settings, pwaLogoData: "" })} className="rounded-xl h-9 text-destructive hover:text-destructive font-bold">
+                                  <X className="w-4 h-4 mr-2" /> Remove
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                          <input ref={logoFileRef} type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                            const f = e.target.files?.[0]; if (!f) return;
+                            try { setSettings({ ...settings, pwaLogoData: await compressImage(f, 512) }); } catch {}
+                            e.target.value = "";
+                          }} />
+                        </div>
+
+                        {/* Favicon */}
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">Favicon (32×32 or 64×64)</label>
+                          <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 rounded-xl border-2 border-dashed border-border bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
+                              {settings.pwaFaviconData ? <img src={settings.pwaFaviconData} className="w-full h-full object-contain" /> : <ImageIcon className="w-6 h-6 text-muted-foreground/30" />}
+                            </div>
+                            <div className="flex flex-col gap-2">
+                              <Button type="button" variant="outline" size="sm" onClick={() => faviconFileRef.current?.click()} className="rounded-xl h-9 font-bold">
+                                <Upload className="w-4 h-4 mr-2" /> Upload Favicon
+                              </Button>
+                              {settings.pwaFaviconData && (
+                                <Button type="button" variant="ghost" size="sm" onClick={() => setSettings({ ...settings, pwaFaviconData: "" })} className="rounded-xl h-9 text-destructive hover:text-destructive font-bold">
+                                  <X className="w-4 h-4 mr-2" /> Remove
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                          <input ref={faviconFileRef} type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                            const f = e.target.files?.[0]; if (!f) return;
+                            try { setSettings({ ...settings, pwaFaviconData: await compressImage(f, 64) }); } catch {}
+                            e.target.value = "";
+                          }} />
+                        </div>
+
+                        {/* Splash Screen */}
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">Splash Screen (1080×1920 recommended)</label>
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-20 rounded-xl border-2 border-dashed border-border bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
+                              {settings.pwaSplashData ? <img src={settings.pwaSplashData} className="w-full h-full object-cover" /> : <ImageIcon className="w-5 h-8 text-muted-foreground/30" />}
+                            </div>
+                            <div className="flex flex-col gap-2">
+                              <Button type="button" variant="outline" size="sm" onClick={() => splashFileRef.current?.click()} className="rounded-xl h-9 font-bold">
+                                <Upload className="w-4 h-4 mr-2" /> Upload Splash
+                              </Button>
+                              {settings.pwaSplashData && (
+                                <Button type="button" variant="ghost" size="sm" onClick={() => setSettings({ ...settings, pwaSplashData: "" })} className="rounded-xl h-9 text-destructive hover:text-destructive font-bold">
+                                  <X className="w-4 h-4 mr-2" /> Remove
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                          <input ref={splashFileRef} type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                            const f = e.target.files?.[0]; if (!f) return;
+                            try { setSettings({ ...settings, pwaSplashData: await compressImage(f, 1920) }); } catch {}
+                            e.target.value = "";
+                          }} />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  {/* ── Tab 3: About ── */}
+                  <TabsContent value="about" className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+                    <Card className="rounded-3xl border-border bg-card overflow-hidden">
+                      <CardHeader className="px-6 pt-6 pb-2">
+                        <CardTitle className="text-base font-black flex items-center gap-2">
+                          <Info className="w-4 h-4 text-primary" /> About Page
+                        </CardTitle>
+                        <p className="text-xs text-muted-foreground">Control the About screen displayed inside the app.</p>
+                      </CardHeader>
+                      <CardContent className="p-6 space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">App Tagline</label>
+                            <Input
+                              value={settings.pwaAboutTagline}
+                              onChange={(e) => setSettings({ ...settings, pwaAboutTagline: e.target.value })}
+                              placeholder="Tailors Toolkit"
+                              className="h-12 rounded-xl bg-muted/30 border-border font-bold text-foreground"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">Version</label>
+                            <Input
+                              value={settings.pwaAboutVersion}
+                              onChange={(e) => setSettings({ ...settings, pwaAboutVersion: e.target.value })}
+                              placeholder="2.0.0"
+                              className="h-12 rounded-xl bg-muted/30 border-border font-bold text-foreground"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="border-t border-border/50 pt-6 space-y-4">
+                          <h3 className="text-xs font-bold text-primary/80 uppercase tracking-wider flex items-center gap-2">
+                            <ExternalLink className="w-3.5 h-3.5" /> Links
+                          </h3>
+                          <div className="grid grid-cols-1 gap-4">
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1 flex items-center gap-1.5">
+                                <Shield className="w-3 h-3" /> Privacy Policy URL
+                              </label>
+                              <Input
+                                value={settings.pwaAboutPrivacyUrl}
+                                onChange={(e) => setSettings({ ...settings, pwaAboutPrivacyUrl: e.target.value })}
+                                placeholder="https://onetailor.com/privacy"
+                                className="h-12 rounded-xl bg-muted/30 border-border font-mono text-sm text-foreground"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1 flex items-center gap-1.5">
+                                <FileText className="w-3 h-3" /> Terms of Service URL
+                              </label>
+                              <Input
+                                value={settings.pwaAboutTermsUrl}
+                                onChange={(e) => setSettings({ ...settings, pwaAboutTermsUrl: e.target.value })}
+                                placeholder="https://onetailor.com/terms"
+                                className="h-12 rounded-xl bg-muted/30 border-border font-mono text-sm text-foreground"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1 flex items-center gap-1.5">
+                                <Phone className="w-3 h-3" /> Contact Support URL
+                              </label>
+                              <Input
+                                value={settings.pwaAboutContactUrl}
+                                onChange={(e) => setSettings({ ...settings, pwaAboutContactUrl: e.target.value })}
+                                placeholder="https://wa.me/234..."
+                                className="h-12 rounded-xl bg-muted/30 border-border font-mono text-sm text-foreground"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1 flex items-center gap-1.5">
+                                <Star className="w-3 h-3" /> Rate OneTailor URL
+                              </label>
+                              <Input
+                                value={settings.pwaAboutRateUrl}
+                                onChange={(e) => setSettings({ ...settings, pwaAboutRateUrl: e.target.value })}
+                                placeholder="https://play.google.com/store/..."
+                                className="h-12 rounded-xl bg-muted/30 border-border font-mono text-sm text-foreground"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="border-t border-border/50 pt-6 space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">Copyright Text</label>
+                          <Input
+                            value={settings.pwaAboutCopyright}
+                            onChange={(e) => setSettings({ ...settings, pwaAboutCopyright: e.target.value })}
+                            placeholder="© 2026 OneTailor Digital Services"
+                            className="h-12 rounded-xl bg-muted/30 border-border font-bold text-foreground"
+                          />
+                        </div>
+
+                        {/* About Preview Card */}
+                        <div className="border-t border-border/50 pt-6">
+                          <p className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1 mb-4">About Page Preview</p>
+                          <div className="rounded-2xl border border-border bg-muted/20 p-6 space-y-5 max-w-sm">
+                            <div className="flex flex-col items-center gap-2 text-center">
+                              <div
+                                className="w-16 h-16 rounded-2xl flex items-center justify-center overflow-hidden shadow-md border border-white/10"
+                                style={{ background: settings.pwaThemeColor || "#6D28D9" }}
+                              >
+                                {settings.pwaLogoData ? (
+                                  <img src={settings.pwaLogoData} className="w-full h-full object-contain p-1" alt="logo" />
+                                ) : (
+                                  <Smartphone className="w-8 h-8 text-white" />
+                                )}
+                              </div>
+                              <div>
+                                <p className="font-black text-lg text-foreground leading-tight">{settings.pwaName || "OneTailor"}</p>
+                                <p className="text-sm text-muted-foreground font-medium">{settings.pwaAboutTagline || "Tailors Toolkit"}</p>
+                              </div>
+                              {settings.pwaAboutVersion && (
+                                <span className="text-[10px] font-bold text-primary/50 bg-primary/5 px-3 py-1 rounded-full border border-primary/10">
+                                  Version {settings.pwaAboutVersion}
+                                </span>
+                              )}
+                            </div>
+                            <div className="space-y-1">
+                              {[
+                                { label: "Privacy Policy", icon: Shield, url: settings.pwaAboutPrivacyUrl },
+                                { label: "Terms of Service", icon: FileText, url: settings.pwaAboutTermsUrl },
+                                { label: "Contact Support", icon: Phone, url: settings.pwaAboutContactUrl },
+                                { label: "Rate OneTailor", icon: Star, url: settings.pwaAboutRateUrl },
+                              ].map(({ label, icon: Icon, url }) => (
+                                <div key={label} className={`flex items-center justify-between px-4 py-3 rounded-xl ${url ? "bg-muted/40" : "bg-muted/20 opacity-40"}`}>
+                                  <div className="flex items-center gap-3">
+                                    <Icon className="w-4 h-4 text-primary/60" />
+                                    <span className="text-sm font-semibold text-foreground">{label}</span>
+                                  </div>
+                                  <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
+                                </div>
+                              ))}
+                            </div>
+                            <p className="text-center text-[10px] text-muted-foreground/60 font-medium">
+                              {settings.pwaAboutCopyright || "© 2026 OneTailor Digital Services"}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+
+                <div className="flex justify-end pt-4">
+                  <Button type="submit" disabled={saving} className="rounded-2xl px-8 h-12 bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">
+                    {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    Save PWA Settings
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </form>
         </TabsContent>
       </Tabs>
     </div>

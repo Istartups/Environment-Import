@@ -475,6 +475,14 @@ async function startServer() {
       { name: "admin_notification_message",  type: "TEXT" },
       // Pro teaser frequency
       { name: "pro_teaser_frequency",        type: "TEXT NOT NULL DEFAULT 'always'" },
+      // About page content
+      { name: "pwa_about_tagline",           type: "TEXT" },
+      { name: "pwa_about_version",           type: "TEXT" },
+      { name: "pwa_about_privacy_url",       type: "TEXT" },
+      { name: "pwa_about_terms_url",         type: "TEXT" },
+      { name: "pwa_about_contact_url",       type: "TEXT" },
+      { name: "pwa_about_rate_url",          type: "TEXT" },
+      { name: "pwa_about_copyright",         type: "TEXT" },
     ];
     for (const col of crmSettingsColumns) {
       try { await db.execute(sql.raw(`ALTER TABLE payment_settings ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`)); } catch {}

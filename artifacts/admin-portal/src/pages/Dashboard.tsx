@@ -69,17 +69,17 @@ export default function Dashboard({ children }: { children: React.ReactNode }) {
   };
 
   const menuItems = [
-    { label: "Overview",        icon: LayoutDashboard, href: "/overview" },
-    { label: "Lead CRM",        icon: MessageSquare,   href: "/crm" },
-    { label: "Accounts",        icon: Users,            href: "/accounts" },
-    { label: "License",         icon: KeyRound,         href: "/licenses" },
-    { label: "Payment",         icon: CreditCard,       href: "/payment" },
-    { label: "Broadcast",       icon: Bell,             href: "/broadcast" },
-    { label: "PWA Setup",        icon: Smartphone,       href: "/pwa-settings" },
-    { label: "Settings",        icon: Settings,         href: "/settings" },
-    { label: "Referrals",        icon: Share2,           href: "/referrals" },
-    { label: "System Logs",     icon: ScrollText,       href: "/logs" },
-    { label: "Deploy Guide",    icon: BookOpen,         href: "/deploy-guide" },
+    { label: "Overview",     icon: LayoutDashboard, href: "/overview" },
+    { label: "Accounts",     icon: Users,           href: "/accounts" },
+    { label: "Lead CRM",     icon: MessageSquare,   href: "/crm" },
+    { label: "Broadcast",    icon: Bell,            href: "/broadcast" },
+    { label: "Payment",      icon: CreditCard,      href: "/payment" },
+    { label: "License",      icon: KeyRound,        href: "/licenses" },
+    { label: "Referrals",    icon: Share2,          href: "/referrals" },
+    { label: "PWA Setup",    icon: Smartphone,      href: "/pwa-settings" },
+    { label: "Deploy Guide", icon: BookOpen,        href: "/deploy-guide" },
+    { label: "Settings",     icon: Settings,        href: "/settings" },
+    { label: "System Logs",  icon: ScrollText,      href: "/logs" },
   ];
 
   const sidebarStyle = { background: "var(--sidebar)", borderRight: "1px solid var(--sidebar-border)" };
