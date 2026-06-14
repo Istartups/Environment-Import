@@ -33,7 +33,7 @@ args = "pnpm --filter api-server run dev & pnpm --filter one-tailor run dev & pn
 waitForPort = 3000
 
 [agent]
-stack = "PNPM_WORKSPACE"
+stack = "BEST_EFFORT_FALLBACK"
 expertMode = true
 
 [postMerge]
