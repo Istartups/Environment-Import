@@ -428,10 +428,10 @@ export default function MeasurementCardGenerator() {
             <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
             <h3 className="text-lg font-bold mb-2">Complete Your Brand Kit First</h3>
             <p className="text-muted-foreground mb-6">
-              Please add your business logo and name in Settings before generating measurement cards.
+              Please add your business logo and name in Brand Kit before generating measurement cards.
             </p>
-            <Button onClick={() => setLocation("/settings")} className="w-full">
-              Go to Brand Settings
+            <Button onClick={() => setLocation("/brand-kit")} className="w-full">
+              Go to Brand Kit
             </Button>
           </div>
         </div>
