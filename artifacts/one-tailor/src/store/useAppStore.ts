@@ -158,6 +158,10 @@ export interface AppState {
   /** Granular status of the most recent premium request — null when none exists. */
   premiumRequestStatus: "pending" | "payment_submitted" | "approved" | "rejected" | null;
   selectedDeviceCount: number;
+  selectedPlanId: number | null;
+  selectedPlanName: string;
+  selectedPlanPrice: number | null;
+  selectedPlanDeviceCount: number;
 
   // Actions
   setMediaWorkspace: (file: MediaWorkspaceFile | null) => void;
@@ -195,6 +199,8 @@ export interface AppState {
   proTeaserFrequency: string;
 
   setSelectedDeviceCount: (count: number) => void;
+  setSelectedPlan: (plan: { id: number; name: string; price: number; deviceCount: number }) => void;
+  clearSelectedPlan: () => void;
   setIsPremium: (status: boolean, key?: string) => void;
   setUsage: (count: number, limit: number) => void;
   incrementUsage: () => Promise<boolean>;
@@ -343,7 +349,13 @@ export const useAppStore = create<AppState>()(
       },
 
       selectedDeviceCount: 1,
+      selectedPlanId: null,
+      selectedPlanName: "",
+      selectedPlanPrice: null,
+      selectedPlanDeviceCount: 1,
       setSelectedDeviceCount: (count) => set({ selectedDeviceCount: count }),
+      setSelectedPlan: (plan) => set({ selectedPlanId: plan.id, selectedPlanName: plan.name, selectedPlanPrice: plan.price, selectedPlanDeviceCount: plan.deviceCount, selectedDeviceCount: plan.deviceCount }),
+      clearSelectedPlan: () => set({ selectedPlanId: null, selectedPlanName: "", selectedPlanPrice: null }),
       setIsPremium: (status, key) => set({ isPremium: status, licenseKey: key || null }),
       setUsage: (count, limit) => set({ totalUsageCount: count, globalUsageLimit: limit }),
 

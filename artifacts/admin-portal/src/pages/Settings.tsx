@@ -50,6 +50,8 @@ import {
   Send,
   CheckCircle,
   KeyRound,
+  Info,
+  ChevronRight,
 } from "lucide-react";
 
 interface PaymentInfo {
@@ -561,6 +563,27 @@ export default function Settings() {
                     </Button>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xl font-bold flex items-center gap-2 text-foreground">
+              <Info className="w-5 h-5 text-primary" /> PWA About Page
+            </h2>
+            <Card
+              className="rounded-3xl border-border bg-card overflow-hidden hover:border-primary/30 transition-colors cursor-pointer"
+              onClick={() => { window.location.href = window.location.pathname.split("/settings")[0] + "/pwa-about"; }}
+            >
+              <CardContent className="p-6 flex items-center gap-5">
+                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0">
+                  <Info className="w-6 h-6 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-bold text-foreground">Edit About Page Content</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">Manage tagline, version, links, and copyright shown in the PWA About screen.</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
               </CardContent>
             </Card>
           </section>

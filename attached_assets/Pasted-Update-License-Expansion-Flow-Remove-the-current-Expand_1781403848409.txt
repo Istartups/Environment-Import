@@ -1,0 +1,119 @@
+Update License Expansion Flow
+
+Remove the current "Expand License" flow that redirects users to WhatsApp admin.
+
+Current issue:
+Under Payment Settings we currently store device pricing tiers:
+
+- 1 Device → 15000
+- 2 Devices → custom price
+- 3 Devices → custom price
+- 5 Devices → custom price
+
+We no longer want this inside Payment Settings.
+
+NEW IMPLEMENTATION
+
+1. Move device pricing into License Page
+
+Inside License page create 2 tabs:
+
+TAB 1: Overview
+Keep existing table exactly as it is.
+
+Columns:
+- Business / User
+- License Key
+- Status
+- Activated
+- Action
+
+
+TAB 2: Device Plans
+
+This should behave like a mini product/shop system.
+
+Admin can create/manage device upgrade plans with fields:
+
+- Plan Name
+- Price Amount
+- Device Count
+- Description
+- Optional Image
+
+Example:
+
+Starter Expansion
+₦15,000
++1 Device
+
+Business Expansion
+₦25,000
++2 Devices
+
+
+2. Premium User Upgrade Flow
+
+Currently on Premium Activated page there is button:
+
+"Add More Devices"
+
+Old flow:
+→ Redirect to WhatsApp admin contact
+
+Remove this completely.
+
+
+New flow:
+When premium user clicks:
+
+"Add More Devices"
+
+Redirect to:
+
+/license/device-plans
+
+
+3. Device Plan Purchase Flow
+
+User should:
+
+- Open Device Plans page
+- See available upgrade plans
+- Select a plan
+- Continue directly into existing payment flow
+
+DO NOT send user to:
+
+/premium-detail
+
+DO NOT require admin WhatsApp contact
+
+
+4. Payment Integration
+
+After selecting device plan:
+
+- Use existing payment system already built
+- Process payment normally
+- After successful payment update user license/device limit automatically
+
+
+5. Remove Old Settings
+
+Delete Device Pricing Tiers from Payment Settings page completely.
+
+Remove fields:
+
+- 1 Device Price
+- 2 Device Price
+- 3 Device Price
+- 5 Device Price
+
+
+Goal
+
+License upgrades should be fully self-service.
+
+Premium users should be able to buy additional devices instantly without contacting admin.
+Reuse existing payment flow and activation logic already in system.

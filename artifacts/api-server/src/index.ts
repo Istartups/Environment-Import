@@ -502,6 +502,20 @@ async function startServer() {
       )
     `);
 
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS device_plans (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        device_count INTEGER NOT NULL DEFAULT 1,
+        price NUMERIC(12,2) NOT NULL DEFAULT 0,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
     logger.info("Database tables verified.");
 
     // ─── Initial Data Setup ───────────────────────────────────────────────────

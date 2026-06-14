@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Crown, Shield, Smartphone, Plus, ChevronRight, Check,
-  Users, Palette, Zap, MessageCircle, CreditCard, FileText, ShieldCheck, LogIn,
+  Users, Palette, Zap, CreditCard, FileText, ShieldCheck, LogIn,
   Gift, ArrowRight, Loader2, MessageSquareText, Layers
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
@@ -11,8 +11,6 @@ export default function PremiumActivated() {
   const isPremium                = useAppStore((s) => s.isPremium);
   const account                  = useAppStore((s) => s.account);
   const selectedDeviceCount      = useAppStore((s) => s.selectedDeviceCount);
-  const adminNotificationPhone   = useAppStore((s) => s.adminNotificationPhone);
-  const adminNotificationMessage = useAppStore((s) => s.adminNotificationMessage);
 
   const [, navigate] = useLocation();
   const [licenseData, setLicenseData] = useState<{
@@ -207,40 +205,20 @@ export default function PremiumActivated() {
         </p>
       </div>
 
-      {/* Add More Devices */}
-      {(() => {
-        const buildAdminWa = () => {
-          if (!adminNotificationPhone) return null;
-          const phone = adminNotificationPhone.replace(/\D/g, "");
-          const rawMsg = adminNotificationMessage
-            || "Hello, I'd like to expand my OneTailor Premium license to add more devices. Business: {{name}}.";
-          const msg = rawMsg.replace(/\{\{name\}\}/g, account?.businessName || "");
-          return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
-        };
-        const waLink = buildAdminWa();
-        return (
-          <button
-            onClick={() => {
-              if (waLink) window.open(waLink, "_blank");
-              else navigate("/premium-details");
-            }}
-            className="w-full p-5 bg-card border-2 border-dashed border-border rounded-3xl flex items-center gap-4 hover:border-primary/40 transition-all active:scale-[0.98] group"
-          >
-            <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shrink-0 group-hover:bg-primary/20 transition-colors">
-              <Plus size={24} />
-            </div>
-            <div className="text-left flex-1">
-              <p className="font-bold text-sm">Add More Devices</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {waLink ? "Contact admin via WhatsApp to expand your license" : "Expand your license to cover more devices"}
-              </p>
-            </div>
-            {waLink
-              ? <MessageCircle size={18} className="text-green-500 group-hover:text-green-400 transition-colors" />
-              : <ChevronRight size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />}
-          </button>
-        );
-      })()}
+      {/* Expand License → Device Plans */}
+      <button
+        onClick={() => navigate("/device-plans")}
+        className="w-full p-5 bg-card border-2 border-dashed border-border rounded-3xl flex items-center gap-4 hover:border-primary/40 transition-all active:scale-[0.98] group"
+      >
+        <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shrink-0 group-hover:bg-primary/20 transition-colors">
+          <Plus size={24} />
+        </div>
+        <div className="text-left flex-1">
+          <p className="font-bold text-sm">Expand Your License</p>
+          <p className="text-xs text-muted-foreground mt-0.5">View device plans and add more devices to your account</p>
+        </div>
+        <ChevronRight size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
+      </button>
 
       {/* Features list */}
       <div className="space-y-2">

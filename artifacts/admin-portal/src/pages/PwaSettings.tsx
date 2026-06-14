@@ -560,9 +560,6 @@ export default function PwaSettings() {
                     <TabsTrigger value="app-brand" className="flex-1 rounded-xl px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center justify-center gap-2 font-bold text-sm transition-all">
                       <ImageIcon className="w-3.5 h-3.5" /> App Brand
                     </TabsTrigger>
-                    <TabsTrigger value="about" className="flex-1 rounded-xl px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center justify-center gap-2 font-bold text-sm transition-all">
-                      <Info className="w-3.5 h-3.5" /> About
-                    </TabsTrigger>
                   </TabsList>
 
                   {/* ── Tab 1: App Info ── */}
@@ -728,16 +725,8 @@ export default function PwaSettings() {
                     </Card>
                   </TabsContent>
 
-                  {/* ── Tab 3: About ── */}
-                  <TabsContent value="about" className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
-                    <Card className="rounded-3xl border-border bg-card overflow-hidden">
-                      <CardHeader className="px-6 pt-6 pb-2">
-                        <CardTitle className="text-base font-black flex items-center gap-2">
-                          <Info className="w-4 h-4 text-primary" /> About Page
-                        </CardTitle>
-                        <p className="text-xs text-muted-foreground">Control the About screen displayed inside the app.</p>
-                      </CardHeader>
-                      <CardContent className="p-6 space-y-6">
+                  {/* About tab removed — now lives at /pwa-about */}
+                  {false && <div className="hidden"><CardContent className="p-6 space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">App Tagline</label>
@@ -867,9 +856,7 @@ export default function PwaSettings() {
                             </p>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
+                      </CardContent></div>}
                 </Tabs>
 
                 <div className="flex justify-end pt-4">

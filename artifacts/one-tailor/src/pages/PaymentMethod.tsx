@@ -32,6 +32,9 @@ export default function PaymentMethod() {
   const account                  = useAppStore((s) => s.account);
   const isPremium                = useAppStore((s) => s.isPremium);
   const selectedDeviceCount      = useAppStore((s) => s.selectedDeviceCount);
+  const selectedPlanPrice        = useAppStore((s) => s.selectedPlanPrice);
+  const selectedPlanDeviceCount  = useAppStore((s) => s.selectedPlanDeviceCount);
+  const clearSelectedPlan        = useAppStore((s) => s.clearSelectedPlan);
   const setPendingPremiumRequest  = useAppStore((s) => s.setPendingPremiumRequest);
   const setPremiumRequestStatus   = useAppStore((s) => s.setPremiumRequestStatus);
 
@@ -55,6 +58,7 @@ export default function PaymentMethod() {
     const trxref = params.get("trxref");
 
     if (status === "success" && trxref) {
+      clearSelectedPlan();
       setPendingPremiumRequest(true);
       setPremiumRequestStatus("payment_submitted");
       navigate("/pre-unlock?status=success");
@@ -83,7 +87,8 @@ export default function PaymentMethod() {
     return settings.price;
   };
 
-  const effectivePrice = priceForCount(selectedDeviceCount);
+  const effectivePrice = selectedPlanPrice ?? priceForCount(selectedDeviceCount);
+  const effectiveDeviceCount = selectedPlanPrice ? selectedPlanDeviceCount : selectedDeviceCount;
 
   const formatPrice = (p: number) =>
     new Intl.NumberFormat("en-NG", { style: "currency", currency: settings?.currencyCode || "NGN" })
@@ -122,10 +127,11 @@ export default function PaymentMethod() {
       fd.append("deviceId",    account?.deviceId || getDeviceId());
       fd.append("evidence",    evidence);
       fd.append("amount",      effectivePrice.toString());
-      fd.append("deviceCount", selectedDeviceCount.toString());
+      fd.append("deviceCount", effectiveDeviceCount.toString());
       if (transferRef.trim()) fd.append("reference", transferRef.trim());
       const res = await fetch("/api/payment/manual", { method: "POST", body: fd });
       if (res.ok) {
+        clearSelectedPlan();
         setPendingPremiumRequest(true);
         setPremiumRequestStatus("payment_submitted");
         navigate("/pre-unlock");
@@ -187,7 +193,7 @@ export default function PaymentMethod() {
                 <p className="text-xs font-bold truncate">{account?.email}</p>
                 <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                   <Smartphone size={10} />
-                  {selectedDeviceCount} device{selectedDeviceCount !== 1 ? "s" : ""} — lifetime premium
+                  {effectiveDeviceCount} device{effectiveDeviceCount !== 1 ? "s" : ""} — lifetime premium
                 </p>
               </div>
               <div className="ml-auto text-right shrink-0">
@@ -284,7 +290,7 @@ export default function PaymentMethod() {
             <div className="p-5 bg-muted/30 rounded-2xl text-left space-y-3">
               {[
                 { label: "Amount",   value: formatPrice(effectivePrice) },
-                { label: "Devices",  value: `${selectedDeviceCount} device${selectedDeviceCount !== 1 ? "s" : ""}` },
+                { label: "Devices",  value: `${effectiveDeviceCount} device${effectiveDeviceCount !== 1 ? "s" : ""}` },
                 { label: "Email",    value: account?.email || "" },
                 { label: "Product",  value: "OneTailor Premium (Lifetime)" },
               ].map(({ label, value }) => (
@@ -326,7 +332,7 @@ export default function PaymentMethod() {
                 <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Transfer Exactly</p>
                 <p className="text-4xl font-black text-primary">{formatPrice(effectivePrice)}</p>
                 <p className="text-[10px] text-muted-foreground">
-                  {selectedDeviceCount} device{selectedDeviceCount !== 1 ? "s" : ""} — lifetime access
+                  {effectiveDeviceCount} device{effectiveDeviceCount !== 1 ? "s" : ""} — lifetime access
                 </p>
               </div>
               <div className="space-y-2">

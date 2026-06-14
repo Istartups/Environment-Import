@@ -8,6 +8,7 @@ import Overview from "./pages/Overview";
 import CombinedPayment from "./pages/CombinedPayment";
 import Settings from "./pages/Settings";
 import PwaSettings from "./pages/PwaSettings";
+import PwaAbout from "./pages/PwaAbout";
 import LicenseManagement from "./pages/LicenseManagement";
 import Broadcast from "./pages/Broadcast";
 import DeployGuide from "./pages/DeployGuide";
@@ -71,6 +72,9 @@ export default function App() {
         </Route>
         <Route path="/pwa-settings">
           <PrivateRoute><Dashboard><PwaSettings /></Dashboard></PrivateRoute>
+        </Route>
+        <Route path="/pwa-about">
+          <PrivateRoute><Dashboard><PwaAbout /></Dashboard></PrivateRoute>
         </Route>
         <Route path="/licenses">
           <PrivateRoute><Dashboard><LicenseManagement /></Dashboard></PrivateRoute>

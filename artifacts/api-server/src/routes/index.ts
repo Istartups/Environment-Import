@@ -9,6 +9,7 @@ import notificationRouter from "./notification";
 import authRouter from "./auth";
 import crmRouter from "./crm";
 import notesRouter from "./notes";
+import devicePlansRouter from "./device-plans";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(tailoringRouter);
 router.use(notificationRouter);
 router.use(crmRouter);
 router.use(notesRouter);
+router.use(devicePlansRouter);
 
 export default router;
