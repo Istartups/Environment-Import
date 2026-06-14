@@ -95,7 +95,7 @@ export default function Dashboard({ children }: { children: React.ReactNode }) {
         <div className="px-5 py-5 border-b border-sidebar-border">
           <div className="flex items-center gap-2">
             <Crown size={20} style={{ color: "hsl(43,82%,55%)" }} />
-            <span className="font-black text-base" style={{ color: "hsl(43,82%,55%)" }}>OneTailor</span>
+            <span className="font-black text-base" style={{ color: "hsl(43,82%,55%)" }}>OnePWA</span>
           </div>
           <div className="flex items-center gap-1.5 mt-0.5">
             <p className="text-[10px]" style={{ color: "var(--sidebar-foreground)", opacity: 0.4 }}>Admin Portal</p>
@@ -149,7 +149,7 @@ export default function Dashboard({ children }: { children: React.ReactNode }) {
             <div>
               <div className="flex items-center gap-2">
                 <Crown size={20} style={{ color: "hsl(43,82%,55%)" }} />
-                <span className="font-black text-base" style={{ color: "hsl(43,82%,55%)" }}>OneTailor</span>
+                <span className="font-black text-base" style={{ color: "hsl(43,82%,55%)" }}>OnePWA</span>
               </div>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <p className="text-[10px]" style={{ color: "var(--sidebar-foreground)", opacity: 0.4 }}>Admin Portal</p>

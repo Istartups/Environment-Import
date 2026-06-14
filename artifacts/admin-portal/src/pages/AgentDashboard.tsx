@@ -46,7 +46,7 @@ export default function AgentDashboard({ children }: { children: React.ReactNode
         <div className="px-5 py-5 border-b border-sidebar-border">
           <div className="flex items-center gap-2">
             <MessageSquare size={18} style={{ color: "hsl(43,82%,55%)" }} />
-            <span className="font-black text-base" style={{ color: "hsl(43,82%,55%)" }}>OneTailor</span>
+            <span className="font-black text-base" style={{ color: "hsl(43,82%,55%)" }}>OnePWA</span>
           </div>
           <p className="text-[10px] mt-0.5" style={{ color: "var(--sidebar-foreground)", opacity: 0.4 }}>Follow-Up Agent</p>
         </div>

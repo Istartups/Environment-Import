@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { useLocation } from "wouter";
 import {
   CheckCircle2,
   AlertTriangle,
@@ -63,6 +64,7 @@ const CHECKS_META = [
 ];
 
 export default function SystemHealthBanner() {
+  const [, setLocation] = useLocation();
   const [health, setHealth] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
@@ -129,13 +131,12 @@ export default function SystemHealthBanner() {
             <span className="font-bold">Fresh install detected.</span>{" "}
             Default admin credentials are active (<span className="font-mono">admin / admin123</span>).
             Change your password in{" "}
-            <a
-              href="../settings"
-              className="underline hover:no-underline"
-              onClick={(e) => { e.preventDefault(); window.location.hash = ""; window.location.pathname = window.location.pathname.replace(/\/?$/, "/settings"); }}
+            <button
+              className="underline hover:no-underline font-semibold"
+              onClick={() => setLocation("/settings")}
             >
-              System Settings
-            </a>{" "}
+              Settings
+            </button>{" "}
             before going live.
           </p>
           <button

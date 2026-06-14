@@ -54,7 +54,7 @@ export default function Login() {
           </div>
           <div className="space-y-1">
             <CardTitle className="text-3xl font-bold tracking-tight text-white" style={{ fontFamily: "var(--font-serif)" }}>Admin Login</CardTitle>
-            <CardDescription className="text-muted-foreground font-medium">Manage your OneTailor Toolkit</CardDescription>
+            <CardDescription className="text-muted-foreground font-medium">Manage your OnePWA</CardDescription>
           </div>
         </CardHeader>
         <CardContent className="pb-10">
