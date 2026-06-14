@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle2, XCircle, RefreshCw, Search, Image as ImageIcon,
   MoreHorizontal, Banknote, CreditCard, Loader2, Save, Globe,
-  Building2, ShieldCheck
+  Building2, ShieldCheck, ArrowUpCircle
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
@@ -67,8 +67,18 @@ function formatPriceDisplay(val: string | number) {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2 });
 }
 
+function parseUpgradeMeta(adminNotes?: string): { type?: string; deviceCount?: number } {
+  if (!adminNotes) return {};
+  try { return JSON.parse(adminNotes); } catch { return {}; }
+}
+
+function isDeviceUpgradePayment(p: Payment) {
+  const meta = parseUpgradeMeta(p.adminNotes);
+  return meta.type === "device_upgrade";
+}
+
 export default function CombinedPayment() {
-  const [tab, setTab] = useState<"overview" | "settings">("overview");
+  const [tab, setTab] = useState<"overview" | "upgrades" | "settings">("overview");
   const { toast } = useToast();
 
   // ── Overview state ─────────────────────────────────────────────────────────
@@ -253,6 +263,14 @@ export default function CombinedPayment() {
       {/* Tabs */}
       <div className="flex gap-1 p-1 rounded-2xl w-fit" style={{ background: "hsl(218,44%,10%)", border: "1px solid hsl(218,38%,18%)" }}>
         <button style={tabStyle(tab === "overview")} onClick={() => setTab("overview")}>Overview</button>
+        <button style={tabStyle(tab === "upgrades")} onClick={() => setTab("upgrades")}>
+          Device Upgrades
+          {payments.filter(isDeviceUpgradePayment).filter(p => p.status === "pending").length > 0 && (
+            <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-black text-[9px] font-black">
+              {payments.filter(isDeviceUpgradePayment).filter(p => p.status === "pending").length}
+            </span>
+          )}
+        </button>
         <button style={tabStyle(tab === "settings")} onClick={() => setTab("settings")}>Settings</button>
       </div>
 
@@ -388,6 +406,178 @@ export default function CombinedPayment() {
           </div>
         </Card>
       )}
+
+      {/* ── DEVICE UPGRADES TAB ────────────────────────────────────────────────── */}
+      {tab === "upgrades" && (() => {
+        const upgrades = payments.filter(isDeviceUpgradePayment);
+        const pending  = upgrades.filter(p => p.status === "pending");
+        const resolved = upgrades.filter(p => p.status !== "pending");
+        return (
+          <div className="space-y-6">
+            {/* Summary cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[
+                { label: "Pending Review",  value: pending.length,                          color: "text-amber-400"  },
+                { label: "Approved",        value: upgrades.filter(p => p.status === "success").length,  color: "text-emerald-400" },
+                { label: "Rejected",        value: upgrades.filter(p => p.status === "rejected").length, color: "text-red-400"     },
+              ].map(s => (
+                <Card key={s.label} className="rounded-2xl border-none bg-card">
+                  <CardContent className="p-5">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">{s.label}</p>
+                    <p className={`text-3xl font-black ${s.color}`}>{s.value}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Pending upgrades */}
+            <Card className="rounded-3xl border-none shadow-2xl bg-card overflow-hidden">
+              <CardHeader className="border-b border-border/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
+                    <ArrowUpCircle className="text-amber-400" size={18} />
+                  </div>
+                  <div>
+                    <CardTitle>Pending Device Upgrade Requests</CardTitle>
+                    <CardDescription>Approve after confirming payment received.</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-muted/30">
+                    <TableRow>
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary/70 h-14 px-6">Method</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary/70 h-14 px-6">Amount</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary/70 h-14 px-6">Devices Requested</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary/70 h-14 px-6">Reference</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary/70 h-14 px-6">Date</TableHead>
+                      <TableHead className="text-right text-[10px] font-black uppercase tracking-widest text-primary/70 h-14 px-6">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pending.map((p) => {
+                      const meta = parseUpgradeMeta(p.adminNotes);
+                      return (
+                        <TableRow key={p.id} className="border-b border-border hover:bg-muted/10 transition-colors">
+                          <TableCell className="px-6 py-5">
+                            <div className="flex items-center gap-2 font-bold text-sm">
+                              {p.method === "paystack" ? <CreditCard size={14} className="text-emerald-500" /> : <Banknote size={14} className="text-blue-500" />}
+                              <span className="capitalize">{p.method === "paystack" ? "Paystack" : "Bank Deposit"}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-6 py-5 font-black text-primary">
+                            {formatPrice(p.amount, currency.symbol, currency.code)}
+                          </TableCell>
+                          <TableCell className="px-6 py-5">
+                            <Badge variant="secondary" className="rounded-full px-3 font-bold">
+                              {meta.deviceCount ?? 1} device{(meta.deviceCount ?? 1) > 1 ? "s" : ""}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="px-6 py-5">
+                            <span className="font-mono text-[10px] bg-muted px-2 py-1 rounded-md text-muted-foreground">
+                              {p.reference || "N/A"}
+                            </span>
+                          </TableCell>
+                          <TableCell className="px-6 py-5 text-xs text-muted-foreground">
+                            {new Date(p.createdAt).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell className="px-6 py-5 text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full">
+                                  <MoreHorizontal size={16} />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48 rounded-xl p-2">
+                                {p.evidenceUrl && (
+                                  <DropdownMenuItem
+                                    onClick={() => window.open(p.evidenceUrl?.replace("/uploads/", "/api/uploads/"), "_blank")}
+                                    className="rounded-lg gap-2 cursor-pointer"
+                                  >
+                                    <ImageIcon size={14} /> View Evidence
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem onClick={() => handleApprove(p.id)} className="rounded-lg gap-2 text-emerald-500 cursor-pointer">
+                                  <CheckCircle2 size={14} /> Approve Upgrade
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => { setSelectedPayment(p); setShowRejectDialog(true); }}
+                                  className="rounded-lg gap-2 text-red-500 cursor-pointer"
+                                >
+                                  <XCircle size={14} /> Reject
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {pending.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                          No pending device upgrade requests.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+
+            {/* History */}
+            {resolved.length > 0 && (
+              <Card className="rounded-3xl border-none shadow-2xl bg-card overflow-hidden">
+                <CardHeader className="border-b border-border/50">
+                  <CardTitle className="text-base">Upgrade History</CardTitle>
+                </CardHeader>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-muted/30">
+                      <TableRow>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary/70 h-12 px-6">Method</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary/70 h-12 px-6">Amount</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary/70 h-12 px-6">Devices</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary/70 h-12 px-6">Status</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-widest text-primary/70 h-12 px-6">Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {resolved.map((p) => {
+                        const meta = parseUpgradeMeta(p.adminNotes);
+                        return (
+                          <TableRow key={p.id} className="border-b border-border hover:bg-muted/10">
+                            <TableCell className="px-6 py-4 font-bold text-sm capitalize">
+                              {p.method === "paystack" ? "Paystack" : "Bank Deposit"}
+                            </TableCell>
+                            <TableCell className="px-6 py-4 font-black text-primary">
+                              {formatPrice(p.amount, currency.symbol, currency.code)}
+                            </TableCell>
+                            <TableCell className="px-6 py-4 text-sm">
+                              {meta.deviceCount ?? 1} device{(meta.deviceCount ?? 1) > 1 ? "s" : ""}
+                            </TableCell>
+                            <TableCell className="px-6 py-4">
+                              <Badge
+                                variant={p.status === "success" ? "default" : "destructive"}
+                                className="capitalize rounded-full px-3"
+                              >
+                                {p.status === "success" ? "Approved" : "Rejected"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="px-6 py-4 text-xs text-muted-foreground">
+                              {new Date(p.createdAt).toLocaleDateString()}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </Card>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── SETTINGS TAB ───────────────────────────────────────────────────────── */}
       {tab === "settings" && (

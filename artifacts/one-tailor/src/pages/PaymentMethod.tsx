@@ -113,6 +113,7 @@ export default function PaymentMethod() {
           email:       account?.email,
           amount:      effectivePrice,
           deviceCount: selectedDeviceCount,
+          ...(isDeviceUpgrade && { paymentType: "device_upgrade" }),
         }),
       });
       const data = await res.json();
@@ -135,6 +136,7 @@ export default function PaymentMethod() {
       fd.append("evidence",    evidence);
       fd.append("amount",      effectivePrice.toString());
       fd.append("deviceCount", effectiveDeviceCount.toString());
+      if (isDeviceUpgrade) fd.append("paymentType", "device_upgrade");
       if (transferRef.trim()) fd.append("reference", transferRef.trim());
       const res = await fetch("/api/payment/manual", { method: "POST", body: fd });
       if (res.ok) {

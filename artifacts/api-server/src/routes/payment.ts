@@ -352,7 +352,7 @@ router.post("/referral/apply", async (req, res) => {
 // ─── Paystack: Initialize ─────────────────────────────────────────────────────
 
 router.post("/payment/paystack/initialize", async (req, res) => {
-  const { deviceId, email, amount } = req.body;
+  const { deviceId, email, amount, paymentType, deviceCount } = req.body;
 
   try {
     const [settings] = await db.select().from(paymentSettingsTable).where(eq(paymentSettingsTable.id, 1)).limit(1);
@@ -370,7 +370,7 @@ router.post("/payment/paystack/initialize", async (req, res) => {
         amount: amount * 100, // Naira → Kobo
         currency: settings.currencyCode || "NGN",
         callback_url: `${process.env["REPLIT_DEV_DOMAIN"] ? `https://${process.env["REPLIT_DEV_DOMAIN"]}` : (process.env["API_URL"] || `${req.protocol}://${req.get("host")}`)}/api/payment/paystack/verify`,
-        metadata: { deviceId, userId: user.id },
+        metadata: { deviceId, userId: user.id, paymentType, deviceCount },
       },
       { headers: { Authorization: `Bearer ${settings.paystackSecretKey}`, "Content-Type": "application/json" } }
     );
@@ -381,6 +381,9 @@ router.post("/payment/paystack/initialize", async (req, res) => {
       method: "paystack",
       status: "pending",
       reference: response.data.data.reference,
+      ...(paymentType === "device_upgrade"
+        ? { adminNotes: JSON.stringify({ type: "device_upgrade", deviceCount: parseInt(deviceCount) || 1 }) }
+        : {}),
     }).returning();
 
     // Mark premium request as payment submitted
@@ -463,7 +466,7 @@ router.get("/payment/paystack/verify", async (req, res) => {
 // ─── Manual Payment Submission ────────────────────────────────────────────────
 
 router.post("/payment/manual", upload.single("evidence"), async (req, res) => {
-  const { deviceId, amount, reference } = req.body;
+  const { deviceId, amount, reference, paymentType, deviceCount } = req.body;
   const file = req.file;
 
   if (!deviceId || !amount || !file) {
@@ -474,6 +477,10 @@ router.post("/payment/manual", upload.single("evidence"), async (req, res) => {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.deviceId, deviceId)).limit(1);
     if (!user) return void res.status(404).json({ message: "User not found" });
 
+    const notes = paymentType === "device_upgrade"
+      ? JSON.stringify({ type: "device_upgrade", deviceCount: parseInt(deviceCount) || 1 })
+      : null;
+
     const [inserted] = await db.insert(paymentsTable).values({
       userId: user.id,
       amount: parseInt(amount),
@@ -481,6 +488,7 @@ router.post("/payment/manual", upload.single("evidence"), async (req, res) => {
       status: "pending",
       evidenceUrl: `/uploads/evidence/${file.filename}`,
       ...(reference?.trim() ? { reference: reference.trim() } : {}),
+      ...(notes ? { adminNotes: notes } : {}),
     }).returning();
 
     // Link to premium request pipeline

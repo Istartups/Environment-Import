@@ -1,14 +1,15 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   Phone, MessageCircle, Mail, MapPin,
   Instagram, Facebook, Youtube, Users,
-  Quote, Download, Printer, Copy, Share2, ShieldCheck
+  Quote, Download, Printer, Copy, Share2, ShieldCheck, Loader2
 } from "lucide-react";
 import { useLocation } from "wouter";
-import { useAppStore } from "@/store/useAppStore";
+import { useAppStore, type Customer, type MeasurementRecord } from "@/store/useAppStore";
 import { useToast } from "@/hooks/use-toast";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
+import { getDeviceId } from "@/lib/utils";
 
 const DEFAULT_GLOBAL_NOTE = "Measurements are taken with care. Please confirm before cutting.";
 
@@ -39,8 +40,8 @@ export default function MeasurementCardGenerator() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
-  const customers        = useAppStore(s => s.customers);
-  const measurements     = useAppStore(s => s.measurements);
+  const storeCustomers   = useAppStore(s => s.customers);
+  const storeMeasurements = useAppStore(s => s.measurements);
   const businessProfile  = useAppStore(s => s.businessProfile);
   const appName          = useAppStore(s => s.appName);
   const appLogo          = useAppStore(s => s.appLogo);
@@ -54,7 +55,80 @@ export default function MeasurementCardGenerator() {
   const [sharing, setSharing]                 = useState(false);
   const [search, setSearch]                   = useState("");
 
+  const [apiCustomers, setApiCustomers]       = useState<Customer[]>([]);
+  const [apiMeasurements, setApiMeasurements] = useState<MeasurementRecord[]>([]);
+  const [fetchingCustomers, setFetchingCustomers]   = useState(false);
+  const [fetchingMeasurements, setFetchingMeasurements] = useState(false);
+
   const cardRef = useRef<HTMLDivElement>(null);
+
+  // ── Fetch customers from API on mount ────────────────────────────────────────
+  useEffect(() => {
+    const deviceId = getDeviceId();
+    setFetchingCustomers(true);
+    fetch(`/api/tailoring/customers?deviceId=${deviceId}`)
+      .then(r => r.json())
+      .then((rows: any[]) => {
+        if (!Array.isArray(rows)) return;
+        const mapped: Customer[] = rows.map(row => ({
+          id:        String(row.id),
+          name:      row.name,
+          phone:     row.phone,
+          email:     row.email || undefined,
+          address:   row.address || undefined,
+          notes:     row.notes || "",
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
+        }));
+        setApiCustomers(mapped);
+      })
+      .catch(() => {})
+      .finally(() => setFetchingCustomers(false));
+  }, []);
+
+  // ── Fetch measurements when a customer is selected ───────────────────────────
+  useEffect(() => {
+    if (!selectedCustomerId) return;
+    const alreadyLoaded = apiMeasurements.some(m => m.customerId === selectedCustomerId);
+    if (alreadyLoaded) return;
+    setFetchingMeasurements(true);
+    fetch(`/api/tailoring/measurements/${selectedCustomerId}`)
+      .then(r => r.json())
+      .then((rows: any[]) => {
+        if (!Array.isArray(rows)) return;
+        const mapped: MeasurementRecord[] = rows.map(row => {
+          let parsedValues: Record<string, string | number> = {};
+          try { parsedValues = JSON.parse(row.values || "{}"); } catch {}
+          const unit = (parsedValues._unit as "inches" | "cm") || "inches";
+          return {
+            id:          String(row.id),
+            customerId:  String(row.customerId),
+            category:    row.category || row.label || "Measurements",
+            measurements: parsedValues,
+            unit,
+            createdAt:   row.createdAt,
+            updatedAt:   row.updatedAt,
+          };
+        });
+        setApiMeasurements(prev => [
+          ...prev.filter(m => m.customerId !== selectedCustomerId),
+          ...mapped,
+        ]);
+      })
+      .catch(() => {})
+      .finally(() => setFetchingMeasurements(false));
+  }, [selectedCustomerId]);
+
+  // ── Merge API data with Zustand store (API takes priority) ──────────────────
+  const customers = useMemo<Customer[]>(() => {
+    const storeOnly = storeCustomers.filter(c => !apiCustomers.find(a => a.id === c.id));
+    return [...apiCustomers, ...storeOnly];
+  }, [apiCustomers, storeCustomers]);
+
+  const measurements = useMemo<MeasurementRecord[]>(() => {
+    const storeOnly = storeMeasurements.filter(m => !apiMeasurements.find(a => a.id === m.id));
+    return [...apiMeasurements, ...storeOnly];
+  }, [apiMeasurements, storeMeasurements]);
 
   const theme          = THEMES[themeIndex];
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId) ?? null;
@@ -166,7 +240,11 @@ export default function MeasurementCardGenerator() {
               onChange={e => setSearch(e.target.value)}
               className="w-full text-sm rounded-2xl px-4 py-3 bg-card border border-border focus:border-primary/50 outline-none"
             />
-            {filteredCustomers.length === 0 ? (
+            {fetchingCustomers ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="animate-spin text-primary w-6 h-6" />
+              </div>
+            ) : filteredCustomers.length === 0 ? (
               <p className="text-center text-muted-foreground text-sm py-8">No customers found.</p>
             ) : (
               <div className="space-y-2">
@@ -188,6 +266,7 @@ export default function MeasurementCardGenerator() {
           </div>
         )}
 
+
         {/* ── STEP 2: SELECT RECORD ── */}
         {step === "select_record" && selectedCustomer && (
           <div className="space-y-4">
@@ -203,7 +282,11 @@ export default function MeasurementCardGenerator() {
 
             <p className="text-sm text-muted-foreground px-1">Select a measurement record:</p>
 
-            {customerRecords.length === 0 ? (
+            {fetchingMeasurements ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="animate-spin text-primary w-6 h-6" />
+              </div>
+            ) : customerRecords.length === 0 ? (
               <p className="text-center text-muted-foreground text-sm py-8">No measurements found for this customer.</p>
             ) : (
               <div className="space-y-2">
