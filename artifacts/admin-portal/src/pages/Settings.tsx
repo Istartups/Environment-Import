@@ -71,6 +71,7 @@ interface PaymentInfo {
   proUpgradeLink: string;
   proUpgradeButtonText: string;
   proUpgradeTitle: string;
+  proTeaserFrequency: string;
   premiumUserTitle: string;
   premiumUserMessage: string;
   freeUpgradeTitle: string;
@@ -377,6 +378,7 @@ export default function Settings() {
           proUpgradeLink: data.proUpgradeLink || "",
           proUpgradeButtonText: data.proUpgradeButtonText || "",
           proUpgradeTitle: data.proUpgradeTitle || "",
+          proTeaserFrequency: data.proTeaserFrequency || "always",
           premiumUserTitle: data.premiumUserTitle || "",
           premiumUserMessage: data.premiumUserMessage || "",
           freeUpgradeTitle: data.freeUpgradeTitle || "",
@@ -517,7 +519,7 @@ export default function Settings() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground" style={{ fontFamily: "var(--font-serif)" }}>
-            System <span className="gold-shimmer">Settings</span>
+            <span className="gold-shimmer">Settings</span>
           </h1>
           <p className="text-muted-foreground mt-1 text-sm font-medium">Manage appearance, pricing, and security.</p>
         </div>
@@ -760,6 +762,24 @@ export default function Settings() {
                             className="h-12 rounded-xl bg-muted/30 border-border font-bold text-foreground"
                           />
                         </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">Teaser Frequency</label>
+                        <Select
+                          value={settings.proTeaserFrequency || "always"}
+                          onValueChange={(val) => setSettings({...settings, proTeaserFrequency: val})}
+                        >
+                          <SelectTrigger className="h-12 rounded-xl bg-muted/30 border-border font-bold text-foreground">
+                            <SelectValue placeholder="Select frequency" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="always">Always (every page load)</SelectItem>
+                            <SelectItem value="daily">Once per day</SelectItem>
+                            <SelectItem value="weekly">Once per week</SelectItem>
+                            <SelectItem value="monthly">Once per month</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-[10px] text-muted-foreground px-1">Controls how often the Pro teaser footer shows for Premium users. The free-user upgrade teaser always shows regardless.</p>
                       </div>
                     </div>
                   </div>

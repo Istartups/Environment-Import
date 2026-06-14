@@ -74,7 +74,7 @@ export default function Dashboard({ children }: { children: React.ReactNode }) {
     { label: "License",         icon: KeyRound,         href: "/licenses" },
     { label: "Payment",         icon: CreditCard,       href: "/payment" },
     { label: "Broadcast",       icon: Bell,             href: "/broadcast" },
-    { label: "System Settings", icon: Settings,         href: "/settings" },
+    { label: "Settings",        icon: Settings,         href: "/settings" },
     { label: "Referrals",        icon: Share2,           href: "/referrals" },
     { label: "System Logs",     icon: ScrollText,       href: "/logs" },
     { label: "Deploy Guide",    icon: BookOpen,         href: "/deploy-guide" },
