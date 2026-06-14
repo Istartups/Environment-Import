@@ -1957,25 +1957,6 @@ export default function CustomerMeasurement() {
           </div>
         )}
 
-        {/* ── 6. PRO UPGRADE TEASER (Premium users only) ──────────────────── */}
-        {isPremium && (view === "clients" || view === "client_detail") && proUpgradeMessage && (
-          <div className="mt-12 p-6 rounded-3xl bg-primary/5 border border-primary/10 space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="flex items-center gap-3 text-primary">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><Crown size={20} /></div>
-              <h3 className="text-sm font-black uppercase tracking-wider">{proUpgradeTitle || "OneTailor Pro"}</h3>
-            </div>
-            <p className="text-xs text-foreground font-medium leading-relaxed opacity-80">{proUpgradeMessage}</p>
-            <a
-              href={proUpgradeLink || "#"}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold text-xs shadow-lg shadow-primary/20 hover:scale-[1.01] active:scale-95 transition-all"
-            >
-              <ExternalLink size={14} />
-              {proUpgradeButtonText}
-            </a>
-          </div>
-        )}
 
       </div>
     </div>

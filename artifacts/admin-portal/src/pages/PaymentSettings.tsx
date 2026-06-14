@@ -16,8 +16,10 @@ import {
   Banknote,
   ShieldCheck,
   Zap,
-  Globe
+  Globe,
+  Clock
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface PaymentInfo {
   price: number;
@@ -31,6 +33,7 @@ interface PaymentInfo {
   paystackSecretKey: string;
   currencyCode: string;
   currencySymbol: string;
+  proTeaserFrequency: string;
 }
 
 export default function PaymentSettings() {
@@ -46,6 +49,7 @@ export default function PaymentSettings() {
     paystackSecretKey: "",
     currencyCode: "NGN",
     currencySymbol: "₦",
+    proTeaserFrequency: "always",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -243,7 +247,42 @@ export default function PaymentSettings() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      {/* PRO TEASER FREQUENCY */}
+      <Card style={cardStyle} className="rounded-3xl border-none shadow-2xl">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center border border-violet-500/20">
+              <Clock className="text-violet-500" />
+            </div>
+            <div>
+              <CardTitle>Pro Upgrade Teaser Frequency</CardTitle>
+              <CardDescription>How often the Pro upgrade card appears to Premium users across all pages.</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase text-primary/60 px-1">Show Pro Teaser</label>
+            <Select
+              value={settings.proTeaserFrequency}
+              onValueChange={(val) => setSettings({ ...settings, proTeaserFrequency: val })}
+            >
+              <SelectTrigger className="h-12 rounded-xl border-none font-bold">
+                <SelectValue placeholder="Select frequency" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="always">Always (every page load)</SelectItem>
+                <SelectItem value="daily">Once per day</SelectItem>
+                <SelectItem value="weekly">Once per week</SelectItem>
+                <SelectItem value="monthly">Once per month</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground px-1">
+              The teaser for free users (Premium upgrade) always shows — this setting only controls the Pro upgrade teaser for Premium users.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

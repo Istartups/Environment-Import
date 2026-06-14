@@ -108,6 +108,7 @@ export const paymentSettingsTable = pgTable("payment_settings", {
   resendApiKey: text("resend_api_key"),
   isSmtpEnabled: boolean("is_smtp_enabled").notNull().default(true),
   isResendEnabled: boolean("is_resend_enabled").notNull().default(true),
+  proTeaserFrequency: text("pro_teaser_frequency").notNull().default("always"),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 

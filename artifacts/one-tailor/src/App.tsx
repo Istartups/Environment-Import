@@ -142,6 +142,7 @@ function App() {
           freeUpgradeTitle: data.freeUpgradeTitle,
           freeUpgradeMessage: data.freeUpgradeMessage,
           freeUpgradeCTA: data.freeUpgradeCTA,
+          proTeaserFrequency: data.proTeaserFrequency,
         });
         if (data.currencySymbol && data.currencyCode) {
           setCurrency(data.currencySymbol, data.currencyCode);

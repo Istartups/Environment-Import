@@ -2,6 +2,7 @@ import { ReactNode, useEffect } from "react";
 import { useLocation } from "wouter";
 import BottomNav from "./BottomNav";
 import SideNav from "./SideNav";
+import UpgradeFooter from "./UpgradeFooter";
 import { subscribeToPush } from "@/lib/push-notifications";
 import { getDeviceId } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
@@ -79,6 +80,7 @@ export default function AppShell({ children }: AppShellProps) {
           <div className="w-full max-w-full overflow-x-hidden">
             {children}
           </div>
+          {showNav && <UpgradeFooter />}
         </main>
         {showNav && <BottomNav />}
       </div>

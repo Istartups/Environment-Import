@@ -192,6 +192,7 @@ export interface AppState {
   freeUpgradeTitle: string;
   freeUpgradeMessage: string;
   freeUpgradeCTA: string;
+  proTeaserFrequency: string;
 
   setSelectedDeviceCount: (count: number) => void;
   setIsPremium: (status: boolean, key?: string) => void;
@@ -234,6 +235,7 @@ export interface AppState {
     freeUpgradeTitle?: string;
     freeUpgradeMessage?: string;
     freeUpgradeCTA?: string;
+    proTeaserFrequency?: string;
   }) => void;
   importData: (data: { customers: Customer[]; measurements: MeasurementRecord[] }) => void;
   clearData: () => void;
@@ -301,6 +303,7 @@ export const useAppStore = create<AppState>()(
       freeUpgradeTitle: "",
       freeUpgradeMessage: "",
       freeUpgradeCTA: "",
+      proTeaserFrequency: "always",
       mediaWorkspace: null,
       referralCode: "",
       successfulInvites: 0,
@@ -455,6 +458,7 @@ export const useAppStore = create<AppState>()(
           freeUpgradeMessage: s.freeUpgradeMessage ?? state.freeUpgradeMessage,
           freeUpgradeCTA: s.freeUpgradeCTA ?? state.freeUpgradeCTA,
           premiumUserMessage: s.premiumUserMessage ?? state.premiumUserMessage,
+          proTeaserFrequency: s.proTeaserFrequency ?? state.proTeaserFrequency,
         })),
       importData: (data) =>
         set((state) => ({

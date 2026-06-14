@@ -582,7 +582,7 @@ router.put("/payment-info", authenticateAdmin as any, async (req, res) => {
       "smtpHost", "smtpPort", "smtpUser", "smtpPass", "smtpSecure",
       "emailFromName", "emailFromAddr", "resendApiKey",
       "isSmtpEnabled", "isResendEnabled",
-      "proUpgradeTitle",
+      "proUpgradeTitle", "proTeaserFrequency",
       "pendingTitle", "pendingBody", "pendingCTA",
       "adminNotificationPhone", "adminNotificationMessage",
       "premiumUserTitle", "premiumUserMessage",
