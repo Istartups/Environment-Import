@@ -7,6 +7,7 @@ import AgentDashboard from "./pages/AgentDashboard";
 import Overview from "./pages/Overview";
 import CombinedPayment from "./pages/CombinedPayment";
 import Settings from "./pages/Settings";
+import PwaSettings from "./pages/PwaSettings";
 import LicenseManagement from "./pages/LicenseManagement";
 import Broadcast from "./pages/Broadcast";
 import DeployGuide from "./pages/DeployGuide";
@@ -67,6 +68,9 @@ export default function App() {
         </Route>
         <Route path="/settings">
           <PrivateRoute><Dashboard><Settings /></Dashboard></PrivateRoute>
+        </Route>
+        <Route path="/pwa-settings">
+          <PrivateRoute><Dashboard><PwaSettings /></Dashboard></PrivateRoute>
         </Route>
         <Route path="/licenses">
           <PrivateRoute><Dashboard><LicenseManagement /></Dashboard></PrivateRoute>

@@ -22,7 +22,12 @@ export default function AppShell({ children }: AppShellProps) {
   const { isAtLimit } = useUsageLimit();
 
   const hideNavOn = ["/pre-unlock", "/subscription", "/payment"];
-  const showNav = !hideNavOn.includes(location);
+  const hideFooterOn = [
+    "/pre-unlock", "/subscription", "/payment",
+    "/premium", "/premium-details", "/premium-activated", "/payment-method",
+  ];
+  const showNav    = !hideNavOn.some(p => location === p || location.startsWith(p + "/"));
+  const showFooter = !hideFooterOn.some(p => location === p || location.startsWith(p + "/"));
 
   useEffect(() => {
     // 1. Verify Premium Status with Server on startup
@@ -80,7 +85,7 @@ export default function AppShell({ children }: AppShellProps) {
           <div className="w-full max-w-full overflow-x-hidden">
             {children}
           </div>
-          {showNav && <UpgradeFooter />}
+          {showNav && showFooter && <UpgradeFooter />}
         </main>
         {showNav && <BottomNav />}
       </div>

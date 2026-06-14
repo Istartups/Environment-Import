@@ -52,7 +52,7 @@ export default function UpgradeFooter() {
 
   if (!isPremium) {
     return (
-      <div className="max-w-xl mx-auto px-4 pb-4 pt-2">
+      <div className="max-w-2xl mx-auto px-4 pb-4 pt-2">
         <div
           onClick={() => setLocation(pendingPremiumRequest ? "/pre-unlock" : "/premium-details")}
           className="relative overflow-hidden p-6 rounded-[2.5rem] cursor-pointer active:scale-[0.98] transition-all group"
@@ -88,7 +88,7 @@ export default function UpgradeFooter() {
   if (isPremium && proUpgradeMessage && proTeaserVisible) {
     return (
       <>
-        <div className="max-w-xl mx-auto px-4 pb-4 pt-2">
+        <div className="max-w-2xl mx-auto px-4 pb-4 pt-2">
           <div
             onClick={() => setShowProPopup(true)}
             className="relative overflow-hidden p-6 rounded-[2.5rem] cursor-pointer active:scale-[0.98] transition-all group"

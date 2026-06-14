@@ -15,7 +15,8 @@ import {
   Users,
   MessageSquare,
   ScrollText,
-  Share2
+  Share2,
+  Smartphone
 } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -74,6 +75,7 @@ export default function Dashboard({ children }: { children: React.ReactNode }) {
     { label: "License",         icon: KeyRound,         href: "/licenses" },
     { label: "Payment",         icon: CreditCard,       href: "/payment" },
     { label: "Broadcast",       icon: Bell,             href: "/broadcast" },
+    { label: "PWA Settings",    icon: Smartphone,       href: "/pwa-settings" },
     { label: "Settings",        icon: Settings,         href: "/settings" },
     { label: "Referrals",        icon: Share2,           href: "/referrals" },
     { label: "System Logs",     icon: ScrollText,       href: "/logs" },

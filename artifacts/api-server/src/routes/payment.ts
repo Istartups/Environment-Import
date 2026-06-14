@@ -463,7 +463,7 @@ router.get("/payment/paystack/verify", async (req, res) => {
 // ─── Manual Payment Submission ────────────────────────────────────────────────
 
 router.post("/payment/manual", upload.single("evidence"), async (req, res) => {
-  const { deviceId, amount } = req.body;
+  const { deviceId, amount, reference } = req.body;
   const file = req.file;
 
   if (!deviceId || !amount || !file) {
@@ -480,6 +480,7 @@ router.post("/payment/manual", upload.single("evidence"), async (req, res) => {
       method: "manual",
       status: "pending",
       evidenceUrl: `/uploads/evidence/${file.filename}`,
+      ...(reference?.trim() ? { reference: reference.trim() } : {}),
     }).returning();
 
     // Link to premium request pipeline
