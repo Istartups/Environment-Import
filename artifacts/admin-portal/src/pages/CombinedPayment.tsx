@@ -428,57 +428,6 @@ export default function CombinedPayment() {
                     placeholder="₦"
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-primary/60 px-1">Base License Price (whole units, e.g. 15000 = ₦15,000)</label>
-                  <Input
-                    type="number"
-                    value={settings.price}
-                    onChange={(e) => setSettings({ ...settings, price: parseInt(e.target.value) || 0 })}
-                    className="h-12 rounded-xl bg-muted/20 border-border font-bold"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Device Pricing Tiers */}
-            <Card className="rounded-3xl border-none shadow-2xl bg-card">
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-                    <Banknote className="text-blue-400" size={18} />
-                  </div>
-                  <div>
-                    <CardTitle>Device Pricing Tiers</CardTitle>
-                    <CardDescription>Set per-device pricing. Leave blank to use the base price.</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                  { key: "price" as const,        label: "1 Device",   placeholder: "e.g. 15000" },
-                  { key: "price2Device" as const,  label: "2 Devices",  placeholder: "e.g. 25000" },
-                  { key: "price3Device" as const,  label: "3 Devices",  placeholder: "e.g. 35000" },
-                  { key: "price5Device" as const,  label: "5 Devices",  placeholder: "e.g. 50000" },
-                ].map(({ key, label, placeholder }) => (
-                  <div key={key} className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-1">{label}</label>
-                    <Input
-                      value={key === "price" ? String(settings.price) : (settings[key] || "")}
-                      onChange={(e) =>
-                        key === "price"
-                          ? setSettings({ ...settings, price: parseInt(e.target.value) || 0 })
-                          : setSettings({ ...settings, [key]: e.target.value })
-                      }
-                      placeholder={placeholder}
-                      className="h-11 rounded-xl bg-muted/20 border-border font-bold text-sm"
-                    />
-                    {key !== "price" && settings[key] && (
-                      <p className="text-[10px] text-muted-foreground px-1">
-                        {settings.currencySymbol}{formatPriceDisplay(settings[key])}
-                      </p>
-                    )}
-                  </div>
-                ))}
               </CardContent>
             </Card>
 

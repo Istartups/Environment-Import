@@ -560,6 +560,9 @@ export default function PwaSettings() {
                     <TabsTrigger value="app-brand" className="flex-1 rounded-xl px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center justify-center gap-2 font-bold text-sm transition-all">
                       <ImageIcon className="w-3.5 h-3.5" /> App Brand
                     </TabsTrigger>
+                    <TabsTrigger value="about" className="flex-1 rounded-xl px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center justify-center gap-2 font-bold text-sm transition-all">
+                      <Info className="w-3.5 h-3.5" /> About
+                    </TabsTrigger>
                   </TabsList>
 
                   {/* ── Tab 1: App Info ── */}
@@ -725,138 +728,24 @@ export default function PwaSettings() {
                     </Card>
                   </TabsContent>
 
-                  {/* About tab removed — now lives at /pwa-about */}
-                  {false && <div className="hidden"><CardContent className="p-6 space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">App Tagline</label>
-                            <Input
-                              value={settings.pwaAboutTagline}
-                              onChange={(e) => setSettings({ ...settings, pwaAboutTagline: e.target.value })}
-                              placeholder="Tailors Toolkit"
-                              className="h-12 rounded-xl bg-muted/30 border-border font-bold text-foreground"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">Version</label>
-                            <Input
-                              value={settings.pwaAboutVersion}
-                              onChange={(e) => setSettings({ ...settings, pwaAboutVersion: e.target.value })}
-                              placeholder="2.0.0"
-                              className="h-12 rounded-xl bg-muted/30 border-border font-bold text-foreground"
-                            />
-                          </div>
+                  {/* ── Tab 3: About ── */}
+                  <TabsContent value="about" className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+                    <Card
+                      className="rounded-3xl border-border bg-card overflow-hidden hover:border-primary/30 transition-colors cursor-pointer"
+                      onClick={() => { window.location.href = window.location.pathname.split("/pwa-settings")[0] + "/pwa-about"; }}
+                    >
+                      <CardContent className="p-6 flex items-center gap-5">
+                        <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0">
+                          <Info className="w-6 h-6 text-primary" />
                         </div>
-
-                        <div className="border-t border-border/50 pt-6 space-y-4">
-                          <h3 className="text-xs font-bold text-primary/80 uppercase tracking-wider flex items-center gap-2">
-                            <ExternalLink className="w-3.5 h-3.5" /> Links
-                          </h3>
-                          <div className="grid grid-cols-1 gap-4">
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1 flex items-center gap-1.5">
-                                <Shield className="w-3 h-3" /> Privacy Policy URL
-                              </label>
-                              <Input
-                                value={settings.pwaAboutPrivacyUrl}
-                                onChange={(e) => setSettings({ ...settings, pwaAboutPrivacyUrl: e.target.value })}
-                                placeholder="https://onetailor.com/privacy"
-                                className="h-12 rounded-xl bg-muted/30 border-border font-mono text-sm text-foreground"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1 flex items-center gap-1.5">
-                                <FileText className="w-3 h-3" /> Terms of Service URL
-                              </label>
-                              <Input
-                                value={settings.pwaAboutTermsUrl}
-                                onChange={(e) => setSettings({ ...settings, pwaAboutTermsUrl: e.target.value })}
-                                placeholder="https://onetailor.com/terms"
-                                className="h-12 rounded-xl bg-muted/30 border-border font-mono text-sm text-foreground"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1 flex items-center gap-1.5">
-                                <Phone className="w-3 h-3" /> Contact Support URL
-                              </label>
-                              <Input
-                                value={settings.pwaAboutContactUrl}
-                                onChange={(e) => setSettings({ ...settings, pwaAboutContactUrl: e.target.value })}
-                                placeholder="https://wa.me/234..."
-                                className="h-12 rounded-xl bg-muted/30 border-border font-mono text-sm text-foreground"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1 flex items-center gap-1.5">
-                                <Star className="w-3 h-3" /> Rate OneTailor URL
-                              </label>
-                              <Input
-                                value={settings.pwaAboutRateUrl}
-                                onChange={(e) => setSettings({ ...settings, pwaAboutRateUrl: e.target.value })}
-                                placeholder="https://play.google.com/store/..."
-                                className="h-12 rounded-xl bg-muted/30 border-border font-mono text-sm text-foreground"
-                              />
-                            </div>
-                          </div>
+                        <div className="flex-1">
+                          <p className="font-bold text-foreground">Edit About Page Content</p>
+                          <p className="text-sm text-muted-foreground mt-0.5">Manage tagline, version, links, and copyright shown in the PWA About screen.</p>
                         </div>
-
-                        <div className="border-t border-border/50 pt-6 space-y-2">
-                          <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">Copyright Text</label>
-                          <Input
-                            value={settings.pwaAboutCopyright}
-                            onChange={(e) => setSettings({ ...settings, pwaAboutCopyright: e.target.value })}
-                            placeholder="© 2026 OneTailor Digital Services"
-                            className="h-12 rounded-xl bg-muted/30 border-border font-bold text-foreground"
-                          />
-                        </div>
-
-                        {/* About Preview Card */}
-                        <div className="border-t border-border/50 pt-6">
-                          <p className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1 mb-4">About Page Preview</p>
-                          <div className="rounded-2xl border border-border bg-muted/20 p-6 space-y-5 max-w-sm">
-                            <div className="flex flex-col items-center gap-2 text-center">
-                              <div
-                                className="w-16 h-16 rounded-2xl flex items-center justify-center overflow-hidden shadow-md border border-white/10"
-                                style={{ background: settings.pwaThemeColor || "#6D28D9" }}
-                              >
-                                {settings.pwaLogoData ? (
-                                  <img src={settings.pwaLogoData} className="w-full h-full object-contain p-1" alt="logo" />
-                                ) : (
-                                  <Smartphone className="w-8 h-8 text-white" />
-                                )}
-                              </div>
-                              <div>
-                                <p className="font-black text-lg text-foreground leading-tight">{settings.pwaName || "OneTailor"}</p>
-                                <p className="text-sm text-muted-foreground font-medium">{settings.pwaAboutTagline || "Tailors Toolkit"}</p>
-                              </div>
-                              {settings.pwaAboutVersion && (
-                                <span className="text-[10px] font-bold text-primary/50 bg-primary/5 px-3 py-1 rounded-full border border-primary/10">
-                                  Version {settings.pwaAboutVersion}
-                                </span>
-                              )}
-                            </div>
-                            <div className="space-y-1">
-                              {[
-                                { label: "Privacy Policy", icon: Shield, url: settings.pwaAboutPrivacyUrl },
-                                { label: "Terms of Service", icon: FileText, url: settings.pwaAboutTermsUrl },
-                                { label: "Contact Support", icon: Phone, url: settings.pwaAboutContactUrl },
-                                { label: "Rate OneTailor", icon: Star, url: settings.pwaAboutRateUrl },
-                              ].map(({ label, icon: Icon, url }) => (
-                                <div key={label} className={`flex items-center justify-between px-4 py-3 rounded-xl ${url ? "bg-muted/40" : "bg-muted/20 opacity-40"}`}>
-                                  <div className="flex items-center gap-3">
-                                    <Icon className="w-4 h-4 text-primary/60" />
-                                    <span className="text-sm font-semibold text-foreground">{label}</span>
-                                  </div>
-                                  <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
-                                </div>
-                              ))}
-                            </div>
-                            <p className="text-center text-[10px] text-muted-foreground/60 font-medium">
-                              {settings.pwaAboutCopyright || "© 2026 OneTailor Digital Services"}
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent></div>}
+                        <ExternalLink className="w-4 h-4 text-muted-foreground shrink-0" />
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
                 </Tabs>
 
                 <div className="flex justify-end pt-4">
