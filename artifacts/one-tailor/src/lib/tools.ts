@@ -1,7 +1,7 @@
 import {
   Ruler, Calculator,
   CalendarClock, ScanLine, Shirt,
-  Tag, Palette, Users, LayoutGrid, Layers, NotebookPen, MessageSquareText
+  Tag, Palette, Users, LayoutGrid, Layers, NotebookPen, MessageSquareText, PlusCircle
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -75,6 +75,19 @@ export const ALL_TOOLS: Tool[] = [
     borderColor: "rgba(168,85,247,0.18)",
     glow: "rgba(168,85,247,0.04)",
     isNew: true,
+  },
+  {
+    id: "add-measurement",
+    path: "/add-customer?mode=addonly",
+    name: "Add Measurement",
+    description: "Pick a client and record new measurements instantly.",
+    category: "measurements",
+    icon: PlusCircle,
+    iconBg: "rgba(34,197,94,0.12)",
+    iconColor: "hsl(142,71%,45%)",
+    borderColor: "rgba(34,197,94,0.18)",
+    glow: "rgba(34,197,94,0.04)",
+    popular: true,
   },
   {
     id: "measurement-card",

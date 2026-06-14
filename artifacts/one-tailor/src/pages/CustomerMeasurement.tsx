@@ -78,6 +78,7 @@ export default function CustomerMeasurement() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [measurementSearch, setMeasurementSearch] = useState("");
   const [isQuickMode, setIsQuickMode] = useState(false);
+  const [isAddOnlyMode, setIsAddOnlyMode] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("recent");
   const [copiedRecordId, setCopiedRecordId] = useState<number | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
@@ -255,6 +256,7 @@ export default function CustomerMeasurement() {
     const cIdParam = params.get("customerId");
     const mode = params.get("mode");
     if (mode === "quick") setIsQuickMode(true);
+    if (mode === "addonly") setIsAddOnlyMode(true);
 
     if (action === "new_client") {
       setView("add_client");
@@ -611,7 +613,13 @@ export default function CustomerMeasurement() {
     setSelectedCustomer(c);
     fetchMeasurements(c.id);
     setCategoryFilter("all");
-    setView("client_detail");
+    if (isAddOnlyMode) {
+      setMeasurementForm({ id: undefined, label: "Initial Measurement", category: "", unit: "Inches", values: {}, customFields: [] });
+      setMeasureAddStep("unit");
+      setView("add_measurement");
+    } else {
+      setView("client_detail");
+    }
   };
 
   const onBack = () => {
@@ -620,7 +628,7 @@ export default function CustomerMeasurement() {
       setView("clients");
     } else if (view === "add_measurement" || view === "edit_measurement") {
       clearDraft();
-      setView("client_detail");
+      setView(isAddOnlyMode ? "clients" : "client_detail");
     } else if (view === "add_client" || view === "edit_client") {
       setView(selectedCustomer ? "client_detail" : "clients");
     } else if (view === "measurement_cards") {
@@ -634,7 +642,7 @@ export default function CustomerMeasurement() {
   };
 
   const pageTitle = {
-    clients: "Clients",
+    clients: isAddOnlyMode ? "Add Measurement" : "Clients",
     client_detail: selectedCustomer?.name || "Client",
     add_client: "Add Client",
     edit_client: "Edit Client",

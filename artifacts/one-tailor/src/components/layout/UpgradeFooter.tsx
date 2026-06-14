@@ -23,16 +23,16 @@ export default function UpgradeFooter() {
   const [showProPopup, setShowProPopup] = useState(false);
   const [proTeaserVisible, setProTeaserVisible] = useState(false);
 
-  const isPremium          = useAppStore(s => s.isPremium);
+  const isPremium             = useAppStore(s => s.isPremium);
   const pendingPremiumRequest = useAppStore(s => s.pendingPremiumRequest);
-  const freeUpgradeTitle   = useAppStore(s => s.freeUpgradeTitle);
-  const freeUpgradeMessage = useAppStore(s => s.freeUpgradeMessage);
-  const freeUpgradeCTA     = useAppStore(s => s.freeUpgradeCTA);
-  const proUpgradeTitle    = useAppStore(s => s.proUpgradeTitle);
-  const proUpgradeMessage  = useAppStore(s => s.proUpgradeMessage);
-  const proUpgradeLink     = useAppStore(s => s.proUpgradeLink);
-  const proUpgradeButtonText = useAppStore(s => s.proUpgradeButtonText);
-  const proTeaserFrequency = useAppStore(s => s.proTeaserFrequency);
+  const freeUpgradeTitle      = useAppStore(s => s.freeUpgradeTitle);
+  const freeUpgradeMessage    = useAppStore(s => s.freeUpgradeMessage);
+  const freeUpgradeCTA        = useAppStore(s => s.freeUpgradeCTA);
+  const proUpgradeTitle       = useAppStore(s => s.proUpgradeTitle);
+  const proUpgradeMessage     = useAppStore(s => s.proUpgradeMessage);
+  const proUpgradeLink        = useAppStore(s => s.proUpgradeLink);
+  const proUpgradeButtonText  = useAppStore(s => s.proUpgradeButtonText);
+  const proTeaserFrequency    = useAppStore(s => s.proTeaserFrequency);
 
   useEffect(() => {
     if (isPremium && proUpgradeMessage) {
@@ -44,9 +44,15 @@ export default function UpgradeFooter() {
     }
   }, [isPremium, proUpgradeMessage, proTeaserFrequency]);
 
+  const handleDismiss = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    localStorage.setItem(PRO_TEASER_KEY, String(Date.now()));
+    setProTeaserVisible(false);
+  };
+
   if (!isPremium) {
     return (
-      <div className="px-4 pb-4 pt-2">
+      <div className="max-w-xl mx-auto px-4 pb-4 pt-2">
         <div
           onClick={() => setLocation(pendingPremiumRequest ? "/pre-unlock" : "/premium-details")}
           className="relative overflow-hidden p-6 rounded-[2.5rem] cursor-pointer active:scale-[0.98] transition-all group"
@@ -82,7 +88,7 @@ export default function UpgradeFooter() {
   if (isPremium && proUpgradeMessage && proTeaserVisible) {
     return (
       <>
-        <div className="px-4 pb-4 pt-2">
+        <div className="max-w-xl mx-auto px-4 pb-4 pt-2">
           <div
             onClick={() => setShowProPopup(true)}
             className="relative overflow-hidden p-6 rounded-[2.5rem] cursor-pointer active:scale-[0.98] transition-all group"
@@ -97,7 +103,16 @@ export default function UpgradeFooter() {
                 <h3 className="text-lg font-black text-white leading-tight">⭐ {proUpgradeTitle || "Unlock OneTailor Pro"}</h3>
                 <p className="text-xs text-white/70 mt-1 line-clamp-2">{proUpgradeMessage}</p>
               </div>
-              <ChevronRight style={{ color: "hsl(43,82%,55%)" }} className="shrink-0" />
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={handleDismiss}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                  aria-label="Dismiss"
+                >
+                  <X size={14} style={{ color: "rgba(255,255,255,0.6)" }} />
+                </button>
+                <ChevronRight style={{ color: "hsl(43,82%,55%)" }} />
+              </div>
             </div>
           </div>
         </div>
