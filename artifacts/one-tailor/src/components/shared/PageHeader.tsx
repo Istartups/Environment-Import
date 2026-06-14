@@ -1,6 +1,6 @@
-import { ChevronLeft, Crown, ShieldCheck, X, ExternalLink } from "lucide-react";
+import { ChevronLeft, Crown, ShieldCheck, Sun, Moon } from "lucide-react";
 import { useLocation } from "wouter";
-import { ReactNode, useState } from "react";
+import { ReactNode } from "react";
 import { useAppStore } from "@/store/useAppStore";
 
 interface PageHeaderProps {
@@ -13,7 +13,9 @@ interface PageHeaderProps {
 }
 
 export function PageHeader({ title, subtitle, rightElement, backPath = "/home", backLabel, onBack }: PageHeaderProps) {
-  const isPremium = useAppStore((s) => s.isPremium);
+  const isPremium  = useAppStore((s) => s.isPremium);
+  const darkMode   = useAppStore((s) => s.darkMode);
+  const setDarkMode = useAppStore((s) => s.setDarkMode);
   const [location, setLocation] = useLocation();
 
   const hideUpgradeOn = ["/pre-unlock", "/subscription", "/payment", "/settings"];
@@ -47,15 +49,28 @@ export function PageHeader({ title, subtitle, rightElement, backPath = "/home", 
             {subtitle && <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight truncate">{subtitle}</p>}
           </div>
 
-          <div className="flex items-center justify-end gap-2 min-w-[64px]">
+          <div className="flex items-center justify-end gap-1.5 min-w-[80px]">
             {rightElement}
+
+            {/* Theme toggle */}
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors active:scale-90"
+              aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {darkMode
+                ? <Sun size={15} className="text-amber-400" />
+                : <Moon size={15} className="text-muted-foreground" />}
+            </button>
+
+            {/* Premium badge */}
             {shouldShowUpgrade && (
               <button
                 onClick={() => setLocation("/pre-unlock")}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all active:scale-95 shadow-lg shadow-primary/20"
                 style={{
-                  background: isPremium 
-                    ? "rgba(16,185,129,0.1)" 
+                  background: isPremium
+                    ? "rgba(16,185,129,0.1)"
                     : "linear-gradient(135deg, hsl(43,82%,55%), hsl(43,90%,68%))",
                   border: isPremium ? "1px solid rgba(16,185,129,0.2)" : "none"
                 }}
