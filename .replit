@@ -30,7 +30,7 @@ outputType = "webview"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter api-server run dev & pnpm --filter one-tailor run dev & pnpm --filter admin-portal run dev & wait"
-waitForPort = 3000
+waitForPort = 5000
 
 [agent]
 stack = "BEST_EFFORT_FALLBACK"

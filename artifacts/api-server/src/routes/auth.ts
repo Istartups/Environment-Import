@@ -2,8 +2,8 @@ import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { db, usersTable, businessProfilesTable, licensesTable, premiumRequestsTable } from "@workspace/db";
-import { eq, and, gt, desc } from "drizzle-orm";
+import { db, usersTable, businessProfilesTable, licensesTable, premiumRequestsTable, paymentsTable, licenseActivationsTable } from "@workspace/db";
+import { eq, and, gt, desc, count, sql } from "drizzle-orm";
 import { generateLicenseKey, generateReferralCode } from "../lib/utils";
 import { sendEmail, templates } from "../lib/notifications";
 import { USER_JWT_SECRET } from "../middlewares/auth";
@@ -312,16 +312,55 @@ router.get("/auth/me", async (req, res) => {
 
     const premiumRequest = await getPremiumRequest(user.id);
 
+    // Latest successful payment for payment method / reference
+    const [latestPayment] = await db
+      .select()
+      .from(paymentsTable)
+      .where(and(eq(paymentsTable.userId, user.id), eq(paymentsTable.status, "success")))
+      .orderBy(desc(paymentsTable.createdAt))
+      .limit(1);
+
+    // Count activated devices for this license
+    let activationCount = 0;
+    if (activeLicense) {
+      const [countRow] = await db
+        .select({ total: count() })
+        .from(licenseActivationsTable)
+        .where(eq(licenseActivationsTable.licenseId, activeLicense.id));
+      activationCount = Number(countRow?.total ?? 0);
+    }
+
+    // All payments for history
+    const paymentHistory = await db
+      .select()
+      .from(paymentsTable)
+      .where(eq(paymentsTable.userId, user.id))
+      .orderBy(desc(paymentsTable.createdAt))
+      .limit(20);
+
     return void res.json({
       user: sanitizeUser({ ...user, isPremium: isCurrentlyPremium }),
       profile: profile ?? null,
       license: activeLicense ? {
+        key: activeLicense.key,
         status: activeLicense.status,
         licenseType: activeLicense.licenseType,
         createdAt: activeLicense.createdAt,
-        deviceLimit: activeLicense.deviceLimit,
-        method: activeLicense.method,
+        activatedAt: activeLicense.activationDate,
+        method: latestPayment?.method ?? null,
+        paymentReference: latestPayment?.reference ?? null,
+        paymentAmount: latestPayment?.amount ?? null,
+        activationCount,
       } : null,
+      paymentHistory: paymentHistory.map((p: typeof paymentsTable.$inferSelect) => ({
+        id: p.id,
+        amount: p.amount,
+        method: p.method,
+        status: p.status,
+        reference: p.reference,
+        createdAt: p.createdAt,
+        verifiedAt: p.verifiedAt,
+      })),
       pendingPremiumRequest: premiumRequest
         ? {
             status: premiumRequest.status,

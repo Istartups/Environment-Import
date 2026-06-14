@@ -2,24 +2,47 @@ import { useEffect, useState } from "react";
 import {
   Crown, Shield, Smartphone, Plus, ChevronRight, Check,
   Users, Palette, Zap, CreditCard, FileText, ShieldCheck, LogIn,
-  Gift, ArrowRight, Loader2, MessageSquareText, Layers
+  Gift, ArrowRight, Loader2, MessageSquareText, Layers, Copy,
+  Key, Receipt, History, Calendar, Clock
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+
+interface PaymentRecord {
+  id: number;
+  amount: number;
+  method: string;
+  status: string;
+  reference?: string;
+  createdAt: string;
+  verifiedAt?: string;
+}
+
+interface LicenseData {
+  key?: string;
+  activatedAt?: string;
+  createdAt?: string;
+  method?: string;
+  gateway?: string;
+  deviceLimit?: number;
+  paymentReference?: string;
+  paymentAmount?: number;
+  activationCount?: number;
+}
 
 export default function PremiumActivated() {
-  const isPremium                = useAppStore((s) => s.isPremium);
-  const account                  = useAppStore((s) => s.account);
-  const selectedDeviceCount      = useAppStore((s) => s.selectedDeviceCount);
+  const isPremium           = useAppStore((s) => s.isPremium);
+  const account             = useAppStore((s) => s.account);
+  const selectedDeviceCount = useAppStore((s) => s.selectedDeviceCount);
 
   const [, navigate] = useLocation();
-  const [licenseData, setLicenseData] = useState<{
-    activatedAt?: string;
-    method?: string;
-    gateway?: string;
-    deviceLimit?: number;
-  }>({});
-  const [loadingLicense, setLoadingLicense] = useState(false);
+  const { toast }    = useToast();
+
+  const [licenseData, setLicenseData]         = useState<LicenseData>({});
+  const [paymentHistory, setPaymentHistory]   = useState<PaymentRecord[]>([]);
+  const [loadingLicense, setLoadingLicense]   = useState(false);
+  const [showHistory, setShowHistory]         = useState(false);
 
   useEffect(() => {
     if (!isPremium) { navigate("/premium-details"); return; }
@@ -31,14 +54,26 @@ export default function PremiumActivated() {
         .then(d => {
           if (d.license) {
             const rawMethod = d.license.method || "";
-            const gateway = rawMethod === "paystack" ? "Paystack" : rawMethod === "manual" ? "Bank Deposit" : rawMethod || "—";
-            const methodLabel = rawMethod === "paystack" ? "Online (Card / Transfer)" : rawMethod === "manual" ? "Bank Deposit" : rawMethod || "—";
+            const methodLabel =
+              rawMethod === "paystack" ? "Online"
+              : rawMethod === "manual"   ? "Direct Bank Payment"
+              : rawMethod || "—";
+            const gatewayLabel =
+              rawMethod === "paystack" ? "Paystack"
+              : rawMethod === "manual"   ? "—"
+              : rawMethod || "—";
             setLicenseData({
-              activatedAt: d.license.createdAt || d.license.activatedAt,
-              method: methodLabel,
-              gateway,
-              deviceLimit: d.license.deviceLimit || selectedDeviceCount,
+              key:              d.license.key,
+              activatedAt:      d.license.activatedAt || d.license.createdAt,
+              method:           methodLabel,
+              gateway:          gatewayLabel,
+              paymentReference: d.license.paymentReference,
+              paymentAmount:    d.license.paymentAmount,
+              activationCount:  d.license.activationCount ?? 0,
             });
+          }
+          if (d.paymentHistory) {
+            setPaymentHistory(d.paymentHistory);
           }
         })
         .catch(() => {})
@@ -60,34 +95,55 @@ export default function PremiumActivated() {
 
   const formatDate = (d?: string) => {
     if (!d) return "—";
-    try {
-      return new Date(d).toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" });
-    } catch { return "—"; }
+    try { return new Date(d).toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" }); }
+    catch { return "—"; }
   };
 
   const formatTime = (d?: string) => {
     if (!d) return "—";
-    try {
-      return new Date(d).toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" });
-    } catch { return "—"; }
+    try { return new Date(d).toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" }); }
+    catch { return "—"; }
   };
 
-  const devicesOwned = licenseData.deviceLimit || selectedDeviceCount || 1;
+  const formatAmount = (n?: number) => {
+    if (!n) return "—";
+    return new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN" })
+      .format(n).replace("NGN", "₦");
+  };
 
-  // ── Quick action tools ──────────────────────────────────────────────────
+  const devicesOwned = selectedDeviceCount || 1;
+
+  const copyToClipboard = (value: string, label: string) => {
+    navigator.clipboard.writeText(value).then(() => {
+      toast({ title: "Copied!", description: `${label} copied.` });
+    }).catch(() => {});
+  };
+
+  const methodLabel = (m: string) =>
+    m === "paystack" ? "Online" : m === "manual" ? "Direct Bank Payment" : m || "—";
+
+  // ── Quick action tools ──────────────────────────────────────────────────────
   const QUICK_ACTIONS = [
     {
       icon: MessageSquareText,
       label: "Message Center",
-      desc: "Send bulk messages to clients",
+      desc: "Send bulk messages",
       path: "/message-center",
       color: "text-violet-500",
       bg: "bg-violet-500/10",
     },
     {
+      icon: FileText,
+      label: "Quote Generator",
+      desc: "Estimate fabric costs",
+      path: "/fabric-cost",
+      color: "text-emerald-500",
+      bg: "bg-emerald-500/10",
+    },
+    {
       icon: Layers,
       label: "Custom Templates",
-      desc: "Create your own measurement presets",
+      desc: "Measurement presets",
       path: "/measurement-templates",
       color: "text-amber-500",
       bg: "bg-amber-500/10",
@@ -95,14 +151,14 @@ export default function PremiumActivated() {
     {
       icon: Palette,
       label: "Brand Kit",
-      desc: "Customize your business branding",
+      desc: "Business branding",
       path: "/settings",
       color: "text-primary",
       bg: "bg-primary/10",
     },
   ];
 
-  // ── Feature list aligned with actual tools ──────────────────────────────
+  // ── Feature list ────────────────────────────────────────────────────────────
   const PREMIUM_FEATURES = [
     { icon: MessageSquareText, label: "Unlimited Bulk Messaging & Groups" },
     { icon: Layers,           label: "Custom Measurement Templates" },
@@ -112,10 +168,20 @@ export default function PremiumActivated() {
     { icon: Zap,              label: "Priority Support & Quick Replies" },
   ];
 
+  const shortKey = licenseData.key
+    ? licenseData.key.slice(0, 8) + "…" + licenseData.key.slice(-4)
+    : "—";
+
+  const shortRef = licenseData.paymentReference
+    ? licenseData.paymentReference.length > 16
+      ? licenseData.paymentReference.slice(0, 14) + "…"
+      : licenseData.paymentReference
+    : "—";
+
   return (
     <div className="max-w-xl mx-auto px-4 pb-24 pt-6 space-y-6">
 
-      {/* Hero */}
+      {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <div className="relative overflow-hidden px-6 py-10 rounded-3xl bg-slate-950 border border-primary/30 shadow-2xl text-center space-y-4">
         <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
@@ -134,21 +200,21 @@ export default function PremiumActivated() {
         </div>
       </div>
 
-      {/* Quick Actions */}
+      {/* ── Quick Actions (tools FIRST) ───────────────────────────────────── */}
       <div className="space-y-2">
         <p className="text-xs font-black uppercase tracking-widest text-muted-foreground px-1">Try Your Premium Tools</p>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           {QUICK_ACTIONS.map(({ icon: Icon, label, desc, path, color, bg }) => (
             <button
               key={path}
               onClick={() => navigate(path)}
-              className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all active:scale-[0.97] text-center"
+              className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all active:scale-[0.97] text-center"
             >
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bg}`}>
-                <Icon size={18} className={color} />
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${bg}`}>
+                <Icon size={16} className={color} />
               </div>
               <div>
-                <p className="text-[10px] font-black leading-tight">{label}</p>
+                <p className="text-[9px] font-black leading-tight">{label}</p>
                 <p className="text-[8px] text-muted-foreground mt-0.5">{desc}</p>
               </div>
             </button>
@@ -156,7 +222,19 @@ export default function PremiumActivated() {
         </div>
       </div>
 
-      {/* Membership Details */}
+      {/* ── Your Premium Includes ─────────────────────────────────────────── */}
+      <div className="space-y-2">
+        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground px-1">Your Premium Includes</p>
+        {PREMIUM_FEATURES.map(({ icon: Icon, label }) => (
+          <div key={label} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card border border-border">
+            <Icon size={14} className="text-primary shrink-0" />
+            <span className="text-sm font-medium flex-1">{label}</span>
+            <Check size={13} className="text-emerald-500 shrink-0" />
+          </div>
+        ))}
+      </div>
+
+      {/* ── Membership Details ────────────────────────────────────────────── */}
       <div className="bg-card border border-border rounded-3xl overflow-hidden">
         <div className="px-5 py-4 border-b border-border bg-muted/20">
           <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Membership Details</p>
@@ -167,27 +245,104 @@ export default function PremiumActivated() {
               <Loader2 size={20} className="animate-spin text-muted-foreground" />
             </div>
           ) : (
-            [
-              { label: "Account",          value: account?.email || "—", icon: ShieldCheck },
-              { label: "Business",         value: account?.businessName || "—", icon: Users },
-              { label: "Payment Date",     value: formatDate(licenseData.activatedAt), icon: Shield },
-              { label: "Payment Time",     value: formatTime(licenseData.activatedAt), icon: Shield },
-              { label: "Payment Method",   value: licenseData.method || "—", icon: CreditCard },
-              { label: "Payment Gateway",  value: licenseData.gateway || "—", icon: CreditCard },
-              { label: "Devices Licensed", value: `${devicesOwned} Device${devicesOwned !== 1 ? "s" : ""}`, icon: Smartphone },
-              { label: "License Status",   value: "Active", icon: Check, highlight: true },
-            ].map(({ label, value, icon: Icon, highlight }) => (
-              <div key={label} className="flex items-center gap-4 px-5 py-3.5">
-                <Icon size={15} className={highlight ? "text-emerald-500" : "text-muted-foreground"} />
-                <span className="text-xs text-muted-foreground flex-1">{label}</span>
-                <span className={`text-xs font-bold ${highlight ? "text-emerald-500" : "text-foreground"}`}>{value}</span>
-              </div>
-            ))
+            <>
+              {/* Static rows */}
+              {[
+                { label: "Account",         value: account?.email || "—",          icon: ShieldCheck, highlight: false },
+                { label: "Business",        value: account?.businessName || "—",   icon: Users,       highlight: false },
+                { label: "License Status",  value: "Active",                        icon: Check,       highlight: true  },
+                { label: "Activated On",    value: formatDate(licenseData.activatedAt), icon: Calendar, highlight: false },
+                { label: "Activation Time", value: formatTime(licenseData.activatedAt), icon: Clock,   highlight: false },
+                { label: "Payment Method",  value: licenseData.method || "—",      icon: CreditCard,  highlight: false },
+                { label: "Payment Gateway", value: licenseData.gateway || "—",     icon: CreditCard,  highlight: false },
+                { label: "Amount Paid",     value: formatAmount(licenseData.paymentAmount), icon: Receipt, highlight: false },
+                { label: "Devices Licensed",value: `${devicesOwned} Device${devicesOwned !== 1 ? "s" : ""}`, icon: Smartphone, highlight: false },
+                { label: "Activations Used",value: `${licenseData.activationCount ?? 0}`, icon: Smartphone, highlight: false },
+              ].map(({ label, value, icon: Icon, highlight }) => (
+                <div key={label} className="flex items-center gap-4 px-5 py-3.5">
+                  <Icon size={15} className={highlight ? "text-emerald-500" : "text-muted-foreground"} />
+                  <span className="text-xs text-muted-foreground flex-1">{label}</span>
+                  <span className={`text-xs font-bold ${highlight ? "text-emerald-500" : "text-foreground"}`}>{value}</span>
+                </div>
+              ))}
+
+              {/* License Key — copyable */}
+              {licenseData.key && (
+                <button
+                  onClick={() => copyToClipboard(licenseData.key!, "License Key")}
+                  className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-muted/30 transition-colors text-left"
+                >
+                  <Key size={15} className="text-muted-foreground shrink-0" />
+                  <span className="text-xs text-muted-foreground flex-1">License Key</span>
+                  <span className="text-xs font-mono font-bold text-foreground">{shortKey}</span>
+                  <Copy size={12} className="text-muted-foreground shrink-0 ml-1" />
+                </button>
+              )}
+
+              {/* Transaction Reference — copyable */}
+              {licenseData.paymentReference && (
+                <button
+                  onClick={() => copyToClipboard(licenseData.paymentReference!, "Transaction Reference")}
+                  className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-muted/30 transition-colors text-left"
+                >
+                  <Receipt size={15} className="text-muted-foreground shrink-0" />
+                  <span className="text-xs text-muted-foreground flex-1">Txn Reference</span>
+                  <span className="text-xs font-mono font-bold text-foreground">{shortRef}</span>
+                  <Copy size={12} className="text-muted-foreground shrink-0 ml-1" />
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
 
-      {/* Device security notice */}
+      {/* ── Payment History ───────────────────────────────────────────────── */}
+      {paymentHistory.length > 0 && (
+        <div className="bg-card border border-border rounded-3xl overflow-hidden">
+          <button
+            onClick={() => setShowHistory(h => !h)}
+            className="w-full flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/20 hover:bg-muted/30 transition-colors"
+          >
+            <History size={14} className="text-muted-foreground" />
+            <p className="text-xs font-black uppercase tracking-widest text-muted-foreground flex-1 text-left">
+              Payment & Upgrade History
+            </p>
+            <span className="text-[10px] text-muted-foreground font-medium">
+              {showHistory ? "Hide" : `Show ${paymentHistory.length}`}
+            </span>
+          </button>
+          {showHistory && (
+            <div className="divide-y divide-border/50">
+              {paymentHistory.map((p) => (
+                <div key={p.id} className="flex items-center gap-4 px-5 py-3.5">
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${
+                    p.status === "success" ? "bg-emerald-500"
+                    : p.status === "pending" ? "bg-amber-500"
+                    : "bg-red-500"
+                  }`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold">{methodLabel(p.method)}</p>
+                    <p className="text-[10px] text-muted-foreground">{formatDate(p.createdAt)}</p>
+                    {p.reference && (
+                      <p className="text-[9px] text-muted-foreground/60 font-mono truncate">{p.reference}</p>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs font-bold">{formatAmount(p.amount)}</p>
+                    <p className={`text-[9px] font-bold capitalize ${
+                      p.status === "success" ? "text-emerald-500"
+                      : p.status === "pending" ? "text-amber-500"
+                      : "text-red-500"
+                    }`}>{p.status}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Device section (AFTER tools) ─────────────────────────────────── */}
       <div className="p-5 bg-primary/5 border border-primary/15 rounded-3xl space-y-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
@@ -205,7 +360,7 @@ export default function PremiumActivated() {
         </p>
       </div>
 
-      {/* Expand License → Device Plans */}
+      {/* ── Expand License → Device Plans ────────────────────────────────── */}
       <button
         onClick={() => navigate("/device-plans")}
         className="w-full p-5 bg-card border-2 border-dashed border-border rounded-3xl flex items-center gap-4 hover:border-primary/40 transition-all active:scale-[0.98] group"
@@ -220,19 +375,7 @@ export default function PremiumActivated() {
         <ChevronRight size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
       </button>
 
-      {/* Features list */}
-      <div className="space-y-2">
-        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground px-1">Your Premium Includes</p>
-        {PREMIUM_FEATURES.map(({ icon: Icon, label }) => (
-          <div key={label} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card border border-border">
-            <Icon size={14} className="text-primary shrink-0" />
-            <span className="text-sm font-medium flex-1">{label}</span>
-            <Check size={13} className="text-emerald-500 shrink-0" />
-          </div>
-        ))}
-      </div>
-
-      {/* Refer a Friend */}
+      {/* ── Refer a Friend ────────────────────────────────────────────────── */}
       <button
         onClick={() => navigate("/invite")}
         className="w-full p-4 rounded-2xl bg-primary/5 border border-primary/10 flex items-center gap-3 hover:bg-primary/10 transition-colors active:scale-[0.98]"

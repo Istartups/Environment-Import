@@ -1,0 +1,369 @@
+5. Fix Membership Details Payment Information
+
+
+
+Current issue inside Membership Details page:
+
+
+
+Payment Time
+
+09:11
+
+
+
+Payment Method
+
+—
+
+
+
+Payment Gateway
+
+—
+
+
+
+Payment Method and Payment Gateway are not being saved/displayed correctly.
+
+
+
+
+
+Fix logic.
+
+
+
+Rules:
+
+
+
+Payment Method field should store how user paid.
+
+
+
+Possible values:
+
+
+
+- Online
+
+- Direct Bank Payment
+
+
+
+
+
+Payment Gateway field should only apply when Payment Method = Online.
+
+
+
+Examples:
+
+
+
+If user pays online through Paystack:
+
+
+
+Payment Method → Online
+
+Payment Gateway → Paystack
+
+
+
+
+
+If user pays through manual transfer:
+
+
+
+Payment Method → Direct Bank Payment
+
+Payment Gateway → Leave empty or show —
+
+
+
+
+
+System must save and display these values correctly in Membership Details after payment.
+
+
+
+
+
+Structure:
+
+
+
+Payment Time → Existing timestamp
+
+
+
+Payment Method → Online / Direct Bank Payment
+
+
+
+Payment Gateway → Paystack (or future gateways if added)
+
+
+
+
+
+Important:
+
+
+
+Gateway is NOT payment method.
+
+
+
+Gateway only exists when online payment is used.
+
+
+
+Make sure payment records, membership records and payment history all store this correctly.
+
+
+
+
+
+Upgrade Membership Details System
+
+
+
+Current Membership Details is too basic.
+
+
+
+Current structure:
+
+
+
+Membership Details
+
+
+
+- Account
+
+- Business
+
+- Payment Date
+
+- Payment Time
+
+- Payment Method
+
+- Payment Gateway
+
+- Devices Licensed
+
+- License Status
+
+
+
+We need to make this system more robust because users can keep upgrading device licenses multiple times and every action must be recorded permanently.
+
+
+
+
+
+1. Improve Main Membership Details
+
+
+
+Keep current fields and expand.
+
+
+
+Membership Details
+
+
+
+Account
+
+Business
+
+License Key
+
+Membership Status
+
+Premium Status
+
+Payment Date
+
+Payment Time
+
+Payment Method (Online / Direct Bank Payment)
+
+Payment Gateway (Paystack or future gateways)
+
+Transaction Reference
+
+Devices Licensed (Current total)
+
+Activated Devices
+
+Remaining Device Slots
+
+License Status
+
+
+
+
+
+2. Add Device Upgrade History Section
+
+
+
+Every time user buys more devices create permanent history record.
+
+
+
+New section:
+
+
+
+Device Upgrade History
+
+
+
+Columns:
+
+
+
+- Date
+
+- Previous Device Limit
+
+- Devices Added
+
+- New Device Limit
+
+- Amount Paid
+
+- Payment Method
+
+- Payment Gateway
+
+- Transaction Reference
+
+- Status
+
+
+
+
+
+Example:
+
+
+
+14 June 2026
+
+
+
+2 Devices
+
++2 Devices
+
+4 Devices
+
+₦10000
+
+Online
+
+Paystack
+
+TXN123
+
+Successful
+
+
+
+
+
+20 June 2026
+
+
+
+4 Devices
+
++1 Device
+
+5 Devices
+
+₦5000
+
+Direct Bank Payment
+
+—
+
+BANK001
+
+Successful
+
+
+
+
+
+3. Payment Records
+
+
+
+Every payment action must create record.
+
+
+
+Actions to record:
+
+
+
+- First Premium Activation
+
+- Device Upgrade Purchase
+
+- Future License Upgrade Purchases
+
+
+
+Nothing should overwrite old records.
+
+
+
+
+
+4. Important Logic
+
+
+
+When user upgrades device plan:
+
+
+
+- Save payment method correctly
+
+- Save payment gateway correctly
+
+- Save transaction reference
+
+- Save old device count
+
+- Save added device count
+
+- Update total licensed devices
+
+- Create permanent upgrade history entry
+
+
+
+
+
+Goal
+
+
+
+Membership Details should become full account license history.
+
+
+
+Every premium purchase and every future device upgrade must always be recorded permanently and visible.

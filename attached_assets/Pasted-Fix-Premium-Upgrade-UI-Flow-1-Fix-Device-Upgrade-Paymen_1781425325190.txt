@@ -1,0 +1,83 @@
+Fix Premium Upgrade + UI Flow
+
+1. Fix Device Upgrade Payment Flow
+
+Current issue:
+When an existing premium user clicks to upgrade and buy more device plans, after selecting a plan it redirects to Premium Activated page and user cannot choose payment method to continue.
+
+Fix this.
+
+Requirement:
+Device license upgrade flow must be separate from first-time premium unlock flow.
+
+Flow should be:
+
+Premium User
+→ Click Add More Devices
+→ Select Device Plan
+→ Go directly to payment method selection
+→ Complete payment
+→ Update device license count
+
+Do NOT send upgrading users through first premium unlock flow.
+
+
+2. Rearrange Premium Activated Page Layout
+
+Current order is bad.
+
+Move these sections UP so they appear before device activation section:
+
+Try Your Premium Tools
+
+- Message Center
+  Send bulk messages to clients
+
+- Custom Templates
+  Create your own measurement presets
+
+- Brand Kit
+  Customize your business branding
+
+Add new feature:
+
+- Quote Generator
+  Create professional quotes for clients
+
+
+3. Move Device Section Below Premium Tools
+
+Place this section AFTER premium tools:
+
+Device Activation Control
+
+Your premium access is protected.
+
+Your membership is linked to your account.
+Access is available on 2 authorised devices at a time.
+To use Premium on more devices, expand your license below.
+
+Expand Your License
+
+View device plans and add more devices to your account
+
+
+4. Make Premium Unlock Pages Compact
+
+Current premium unlock pages waste too much space.
+
+Just like pre-unlock form page (email/password page) which is compact:
+
+Apply same compact design to ALL premium unlock pages.
+
+Requirements:
+
+- Reduce unnecessary padding
+- Remove wasted vertical spaces
+- Reduce oversized cards/containers
+- Make sections closer together
+- Fit more content on screen without excessive scrolling
+- Optimize mobile and desktop layout
+
+Goal:
+Entire premium unlock/activation flow should feel compact, clean and efficient.

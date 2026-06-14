@@ -59,25 +59,32 @@ export default function PaymentMethod() {
 
     if (status === "success" && trxref) {
       clearSelectedPlan();
-      setPendingPremiumRequest(true);
-      setPremiumRequestStatus("payment_submitted");
-      navigate("/pre-unlock?status=success");
-      toast({ title: "Payment Successful!", description: "Your premium is being activated." });
+      if (isPremium) {
+        navigate("/premium-activated");
+        toast({ title: "Payment Submitted!", description: "Your device upgrade will be processed shortly." });
+      } else {
+        setPendingPremiumRequest(true);
+        setPremiumRequestStatus("payment_submitted");
+        navigate("/pre-unlock?status=success");
+        toast({ title: "Payment Successful!", description: "Your premium is being activated." });
+      }
     } else if (status === "cancelled") {
       setScreen("select");
       toast({ title: "Payment Cancelled", description: "You can try again whenever you're ready." });
     }
   }, []);
 
+  const isDeviceUpgrade = !!selectedPlanPrice;
+
   useEffect(() => {
-    if (isPremium) { navigate("/premium-activated"); return; }
+    if (isPremium && !isDeviceUpgrade) { navigate("/premium-activated"); return; }
     if (!account) { navigate("/pre-unlock"); return; }
     fetch("/api/payment-info")
       .then(r => r.json())
       .then(d => setSettings(d))
       .catch(() => toast({ title: "Error", description: "Could not load payment info.", variant: "destructive" }))
       .finally(() => setLoading(false));
-  }, [isPremium, account]);
+  }, [isPremium, account, isDeviceUpgrade]);
 
   const priceForCount = (count: number): number => {
     if (!settings) return 0;
@@ -132,10 +139,15 @@ export default function PaymentMethod() {
       const res = await fetch("/api/payment/manual", { method: "POST", body: fd });
       if (res.ok) {
         clearSelectedPlan();
-        setPendingPremiumRequest(true);
-        setPremiumRequestStatus("payment_submitted");
-        navigate("/pre-unlock");
-        toast({ title: "Submitted!", description: "We'll verify your payment shortly." });
+        if (isPremium) {
+          navigate("/premium-activated");
+          toast({ title: "Submitted!", description: "Your device upgrade proof has been sent for review." });
+        } else {
+          setPendingPremiumRequest(true);
+          setPremiumRequestStatus("payment_submitted");
+          navigate("/pre-unlock");
+          toast({ title: "Submitted!", description: "We'll verify your payment shortly." });
+        }
       } else {
         const err = await res.json();
         toast({ title: "Error", description: err.message || "Failed to submit.", variant: "destructive" });
