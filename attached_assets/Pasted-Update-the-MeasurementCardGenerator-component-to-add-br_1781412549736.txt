@@ -1,0 +1,108 @@
+Update the MeasurementCardGenerator component to add brand color support alongside the existing theme system. Here's exactly what I need:
+
+1. Add Brand Color Storage and State
+Import brand colors from useAppStore (existing businessProfile.primaryColor, businessProfile.secondaryColor, businessProfile.accentColor from Brand Kit)
+
+Add new state: useBrandColors (boolean, default false)
+
+Add new state: selectedColorCombination (string, options: "single", "dual", "triple", default "single")
+
+Add new state: brandTheme that dynamically builds a theme object from brand colors when useBrandColors is true
+
+2. New UI Section in Customize Step (after existing Theme Selector)
+Add a new section titled "Color Source" with two tabs:
+
+Tab 1 - Classic Themes (always visible for all users)
+
+Shows the existing 5 theme buttons (dark, light, gold, indigo, emerald)
+
+When selected, sets useBrandColors = false and updates theme state normally
+
+Tab 2 - Brand Colors (show for all users, but premium features locked)
+
+Label: "Use My Brand Colors"
+
+Shows 3 color swatches: Primary, Secondary, Accent (from businessProfile)
+
+If colors aren't set in Brand Kit, show placeholder: "Set colors in Brand Kit first"
+
+Add info badge for Premium users: "Premium: Multi-color combinations"
+
+3. Color Combination Controls (PREMIUM ONLY)
+Only visible when useBrandColors === true AND isPremium === true
+
+3 buttons:
+
+"1 Color" - uses only primary color throughout card
+
+"2 Colors" - uses primary + secondary
+
+"3 Colors" - uses primary, secondary, accent
+
+For non-premium users: show lock icon + tooltip "Upgrade to use multiple brand colors"
+
+4. Dynamic Theme Object for Brand Colors
+Create a function getBrandTheme() that returns an object matching THEMES structure:
+
+javascript
+{
+  id: "brand",
+  label: "Brand Colors",
+  bg: businessProfile.primaryColor || "#0f172a",
+  text: "text-white" (auto-detect dark/light based on primary color luminance),
+  border: use opacity variations of primary color,
+  accent: businessProfile.accentColor || businessProfile.secondaryColor || businessProfile.primaryColor,
+  hex: businessProfile.primaryColor,
+  hexAccent: accent color
+}
+5. Apply to ALL Card Styles
+The brand theme colors must override the default style's colors
+
+For each card style (standard, executive, luxury, modern, minimal, fashion, elegant):
+
+Replace hardcoded theme colors with dynamic values from active theme (either selected THEME or brandTheme)
+
+Maintain same structure, just inject colors
+
+For "2 Colors" mode: header uses primary, borders use secondary, accents use primary
+
+For "3 Colors" mode: header primary, borders secondary, accents accent, highlights secondary
+
+6. Special Style Adjustments for Brand Colors
+Modern style: Use primary as main text color, secondary for borders
+
+Luxury style: Use accent for diamond separators and gold accents
+
+Fashion style: Use primary for main, accent for vertical lines
+
+Elegant style: Use accent for diamond icons, secondary for dividers
+
+7. Preview Updates
+When user toggles between Theme Tab and Brand Tab, the card preview updates immediately
+
+When premium user changes color combination (1/2/3), preview updates immediately
+
+Show a small color indicator badge near the card preview showing active colors
+
+8. Persistence
+Save useBrandColors and selectedColorCombination to localStorage
+
+Load on component mount
+
+9. Edge Cases
+If Brand Kit has only primary color set, secondary/accent fallback to primary
+
+If no brand colors at all and user selects Brand tab, show warning and fallback to default theme
+
+For non-premium users on Brand tab, color combination selector is disabled/grayed out with "PRO" badge
+
+10. Visual Feedback
+Show active tab with underline/border highlight
+
+Show color combination buttons with active state
+
+Display actual brand colors in the UI as small swatches next to tab labels
+
+Important: DO NOT BREAK anything. All existing functionality (download, print, share, copy as text, customer selection, record selection, all 7 card styles) must work exactly as before. Just add this as an enhancement layer above the existing theme system.
+The brand colors should seamlessly integrate into every card style while maintaining the unique character of each style (minimal stays minimal, luxury stays luxury, just with brand colors instead of theme colors).
+

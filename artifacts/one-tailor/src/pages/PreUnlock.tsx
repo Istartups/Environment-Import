@@ -547,99 +547,94 @@ export default function PreUnlock() {
           )}
 
           {/* ── Q6: ACCOUNT CREATION ──────────────────────────────────────────── */}
-          {step === "account" && (
-            <motion.div key="account" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.25 }} className="space-y-5">
+          {step === "account" && (() => {
+            const ci = "w-full pl-10 pr-4 py-2.5 rounded-xl bg-card border border-border outline-none focus:border-primary transition-colors text-sm";
+            return (
+            <motion.div key="account" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.25 }} className="space-y-3">
               <div>
-                <h2 className="text-2xl font-bold leading-snug">Create your account</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  One account restores premium on{" "}
-                  <span className="font-bold text-primary">{selectedDeviceCount} device{selectedDeviceCount !== 1 ? "s" : ""}</span>.
+                <h2 className="text-xl font-bold leading-snug">Create your account</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Premium on <span className="font-bold text-primary">{selectedDeviceCount} device{selectedDeviceCount !== 1 ? "s" : ""}</span> — sync anywhere.
                 </p>
               </div>
-              <form onSubmit={handleRegister} className="space-y-4">
-                <div className="space-y-1.5">
+              <form onSubmit={handleRegister} className="space-y-2.5">
+                <div className="space-y-1">
                   <label className={lbl}>Business / Shop Name</label>
                   <div className="relative">
-                    <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
                     <input required type="text" placeholder="e.g. Joyful Stitches" value={answers.name}
-                      onChange={e => setAnswers(a => ({ ...a, name: e.target.value }))} className={inp} />
+                      onChange={e => setAnswers(a => ({ ...a, name: e.target.value }))} className={ci} />
                   </div>
                 </div>
-                <div className="space-y-1.5">
-                  <label className={lbl}>WhatsApp Number</label>
-                  <div className="relative">
-                    <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-green-500" size={16} />
-                    <input required type="tel" placeholder="e.g. 08012345678" value={answers.phone}
-                      onChange={e => setAnswers(a => ({ ...a, phone: e.target.value.replace(/[^0-9+]/g, "") }))} className={inp} />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className={lbl}>WhatsApp</label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-green-500" size={15} />
+                      <input required type="tel" placeholder="08012345678" value={answers.phone}
+                        onChange={e => setAnswers(a => ({ ...a, phone: e.target.value.replace(/[^0-9+]/g, "") }))} className={ci} />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className={lbl}>Email</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
+                      <input required type="email" placeholder="you@example.com" value={answers.email}
+                        onChange={e => handleEmailChange(e.target.value)}
+                        className={`${ci} ${emailAvailable === false ? "border-red-500" : emailAvailable === true ? "border-emerald-500" : ""}`} />
+                      {(checkingEmail || emailDebouncing) && <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin text-muted-foreground" size={12} />}
+                    </div>
+                    {!checkingEmail && !emailDebouncing && emailAvailable === false && (
+                      <p className="text-[10px] text-red-500">Taken — <button type="button" onClick={() => navigate("/account-login")} className="underline font-bold">Login</button></p>
+                    )}
+                    {!checkingEmail && !emailDebouncing && emailAvailable === true && <p className="text-[10px] text-emerald-500">✓ Available</p>}
                   </div>
                 </div>
-                <div className="space-y-1.5">
-                  <label className={lbl}>Email Address</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                    <input required type="email" placeholder="you@example.com" value={answers.email}
-                      onChange={e => handleEmailChange(e.target.value)}
-                      className={`${inp} ${emailAvailable === false ? "border-red-500" : emailAvailable === true ? "border-emerald-500" : ""}`} />
-                    {(checkingEmail || emailDebouncing) && <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 animate-spin text-muted-foreground" size={14} />}
-                  </div>
-                  {!checkingEmail && !emailDebouncing && emailAvailable === false && (
-                    <p className="text-xs text-red-500 ml-1">Email taken. <button type="button" onClick={() => navigate("/account-login")} className="underline font-bold">Login instead</button></p>
-                  )}
-                  {!checkingEmail && !emailDebouncing && emailAvailable === true && <p className="text-xs text-emerald-500 ml-1">✓ Email available</p>}
-                  {emailDebouncing && <p className="text-xs text-muted-foreground ml-1">Checking availability...</p>}
-                </div>
-                <div className="space-y-1.5">
-                  <label className={lbl}>Password</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                    <input required type={showPassword ? "text" : "password"} placeholder="At least 6 characters" value={answers.password}
-                      onChange={e => setAnswers(a => ({ ...a, password: e.target.value }))} className={`${inp} pr-11`} />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground">
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                  {answers.password && (
-                    <div className="mt-2 space-y-1">
-                      <div className="flex gap-1">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className={lbl}>Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
+                      <input required type={showPassword ? "text" : "password"} placeholder="Min 6 chars" value={answers.password}
+                        onChange={e => setAnswers(a => ({ ...a, password: e.target.value }))} className={`${ci} pr-9`} />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                    {answers.password && (
+                      <div className="flex gap-0.5 mt-1">
                         {[1, 2, 3, 4, 5].map(i => (
                           <div key={i} className={`flex-1 h-1 rounded-full transition-all ${i <= passwordStrength.score ? passwordStrength.color : "bg-muted"}`} />
                         ))}
                       </div>
-                      <p className="text-[10px] font-bold" style={{ color: passwordStrength.color === "bg-red-500" ? "#ef4444" : passwordStrength.color === "bg-orange-500" ? "#f97316" : passwordStrength.color === "bg-yellow-500" ? "#eab308" : "#10b981" }}>
-                        {passwordStrength.label}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-1.5">
-                  <label className={lbl}>Confirm Password</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                    <input required type={showConfirmPassword ? "text" : "password"} placeholder="Repeat password" value={answers.confirmPassword}
-                      onChange={e => setAnswers(a => ({ ...a, confirmPassword: e.target.value }))}
-                      className={`${inp} pr-11 ${answers.confirmPassword && answers.password !== answers.confirmPassword ? "border-red-500" : ""}`} />
-                    <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground">
-                      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
+                    )}
                   </div>
-                  {answers.confirmPassword && answers.password !== answers.confirmPassword && (
-                    <p className="text-xs text-red-500 ml-1">Passwords don't match</p>
-                  )}
+                  <div className="space-y-1">
+                    <label className={lbl}>Confirm</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
+                      <input required type={showConfirmPassword ? "text" : "password"} placeholder="Repeat password" value={answers.confirmPassword}
+                        onChange={e => setAnswers(a => ({ ...a, confirmPassword: e.target.value }))}
+                        className={`${ci} pr-9 ${answers.confirmPassword && answers.password !== answers.confirmPassword ? "border-red-500" : ""}`} />
+                      <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        {showConfirmPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                    {answers.confirmPassword && answers.password !== answers.confirmPassword && (
+                      <p className="text-[10px] text-red-500">Passwords don't match</p>
+                    )}
+                  </div>
                 </div>
-                <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setStep("devices")} className="flex-1 py-4 bg-secondary text-secondary-foreground rounded-2xl font-bold">Back</button>
-                  <button type="submit" disabled={processing} className="flex-[2] py-4 bg-primary text-primary-foreground rounded-2xl font-bold flex items-center justify-center gap-2 disabled:opacity-50">
-                    {processing ? <Loader2 className="animate-spin" size={18} /> : <><Crown size={18} /> See Premium</>}
-                  </button>
-                </div>
-                <div className="text-center">
-                  <button type="button" onClick={() => navigate("/account-login")} className="text-sm text-muted-foreground">
-                    Already have an account? <span className="text-primary font-semibold">Login</span>
+                <div className="flex gap-2 pt-1">
+                  <button type="button" onClick={() => setStep("devices")} className="flex-1 py-3 bg-secondary text-secondary-foreground rounded-2xl font-bold text-sm">Back</button>
+                  <button type="submit" disabled={processing} className="flex-[2] py-3 bg-primary text-primary-foreground rounded-2xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+                    {processing ? <Loader2 className="animate-spin" size={16} /> : <><Crown size={16} /> See Premium</>}
                   </button>
                 </div>
               </form>
             </motion.div>
-          )}
+            );
+          })()}
 
           {/* ── VERIFICATION PENDING ──────────────────────────────────────────── */}
           {step === "pending" && (

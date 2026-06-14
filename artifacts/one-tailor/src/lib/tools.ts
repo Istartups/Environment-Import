@@ -172,7 +172,7 @@ export const ALL_TOOLS: Tool[] = [
   {
     id: "fabric-cost",
     path: "/fabric-cost",
-    name: "Fabric Cost Estimator",
+    name: "Quote Builder",
     description: "Quote materials fast and accurately.",
     category: "pricing",
     icon: Calculator,

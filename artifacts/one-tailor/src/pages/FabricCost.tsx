@@ -271,7 +271,7 @@ export default function FabricCost() {
   return (
     <div className="max-w-lg mx-auto relative min-h-screen pb-10">
       <PageHeader 
-        title="Fabric Cost Estimator" 
+        title="Quote Builder" 
         subtitle="Quote materials fast and accurately" 
         backPath="/all-tools?cat=pricing"
         backLabel="Tailoring Tools"
