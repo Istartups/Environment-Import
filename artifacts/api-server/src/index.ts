@@ -473,6 +473,8 @@ async function startServer() {
       // Admin payment notification (WhatsApp)
       { name: "admin_notification_phone",    type: "TEXT" },
       { name: "admin_notification_message",  type: "TEXT" },
+      // Pro teaser frequency
+      { name: "pro_teaser_frequency",        type: "TEXT NOT NULL DEFAULT 'always'" },
     ];
     for (const col of crmSettingsColumns) {
       try { await db.execute(sql.raw(`ALTER TABLE payment_settings ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`)); } catch {}

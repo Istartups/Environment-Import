@@ -17,21 +17,18 @@ import { cn } from "@/lib/utils";
 import {
   Loader2,
   Save,
-  Sun,
-  Moon,
-  Monitor,
   Globe,
   Lock,
   Zap,
   Crown,
   Link as LinkIcon,
-  Palette,
   ShieldAlert,
   ShieldCheck,
   Smartphone,
   ImageIcon,
   Upload,
   X,
+  Home,
 } from "lucide-react";
 
 interface PwaInfo {
@@ -95,13 +92,6 @@ const DEFAULT: PwaInfo = {
 };
 
 export default function PwaSettings() {
-  const [theme, setTheme] = useState<"light" | "dark" | "system">(() => {
-    if (typeof window !== "undefined") {
-      return (localStorage.getItem("admin_theme") as "light" | "dark" | "system") || "system";
-    }
-    return "system";
-  });
-
   const [settings, setSettings] = useState<PwaInfo>(DEFAULT);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -110,17 +100,6 @@ export default function PwaSettings() {
   const logoFileRef    = useRef<HTMLInputElement>(null);
   const faviconFileRef = useRef<HTMLInputElement>(null);
   const splashFileRef  = useRef<HTMLInputElement>(null);
-
-  const updateTheme = (newTheme: "light" | "dark" | "system") => {
-    setTheme(newTheme);
-    localStorage.setItem("admin_theme", newTheme);
-    if (newTheme === "system") {
-      const sys = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-      document.documentElement.classList.toggle("dark", sys === "dark");
-    } else {
-      document.documentElement.classList.toggle("dark", newTheme === "dark");
-    }
-  };
 
   const compressImage = (file: File, maxPx: number): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -244,25 +223,14 @@ export default function PwaSettings() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground" style={{ fontFamily: "var(--font-serif)" }}>
-            PWA <span className="gold-shimmer">Settings</span>
+            PWA <span className="gold-shimmer">Setup</span>
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm font-medium">Appearance, system configuration, and PWA branding.</p>
+          <p className="text-muted-foreground mt-1 text-sm font-medium">System configuration and PWA branding.</p>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => updateTheme(theme === "dark" ? "light" : "dark")}
-          className="rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/10 h-11 w-11"
-        >
-          {theme === "dark" ? <Sun className="w-5 h-5 text-primary" /> : <Moon className="w-5 h-5 text-primary" />}
-        </Button>
       </div>
 
-      <Tabs defaultValue="appearance" className="w-full">
+      <Tabs defaultValue="system" className="w-full">
         <TabsList className="bg-primary/5 border border-primary/10 rounded-2xl p-1 mb-8 flex flex-wrap gap-1">
-          <TabsTrigger value="appearance" className="rounded-xl px-5 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2 font-bold transition-all">
-            <Palette className="w-4 h-4" /> Appearance
-          </TabsTrigger>
           <TabsTrigger value="system" className="rounded-xl px-5 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2 font-bold transition-all">
             <Globe className="w-4 h-4" /> System Config
           </TabsTrigger>
@@ -270,34 +238,6 @@ export default function PwaSettings() {
             <Smartphone className="w-4 h-4" /> PWA
           </TabsTrigger>
         </TabsList>
-
-        {/* ── Appearance ──────────────────────────────────────────── */}
-        <TabsContent value="appearance" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-          <section className="space-y-4">
-            <h2 className="text-xl font-bold flex items-center gap-2 text-foreground">
-              <Sun className="w-5 h-5 text-primary" /> Appearance Mode
-            </h2>
-            <Card className="rounded-3xl border-border bg-card overflow-hidden">
-              <CardContent className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {(["light", "dark", "system"] as const).map((t) => (
-                    <Button
-                      key={t}
-                      variant={theme === t ? "default" : "outline"}
-                      className={cn("h-20 rounded-2xl flex-col gap-2 font-bold", theme === t ? "bg-primary text-primary-foreground" : "border-border hover:bg-primary/5")}
-                      onClick={() => updateTheme(t)}
-                    >
-                      {t === "light" && <Sun className="w-5 h-5" />}
-                      {t === "dark"  && <Moon className="w-5 h-5" />}
-                      {t === "system" && <Monitor className="w-5 h-5" />}
-                      {t.charAt(0).toUpperCase() + t.slice(1)} Theme
-                    </Button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </section>
-        </TabsContent>
 
         {/* ── System Config ──────────────────────────────────────── */}
         <TabsContent value="system" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
@@ -514,6 +454,80 @@ export default function PwaSettings() {
               <Smartphone className="w-5 h-5 text-primary" /> PWA App Branding
             </h2>
             <p className="text-sm text-muted-foreground">Controls the app name, theme colour, and description shown when users install the PWA. Changes take effect on the next app load.</p>
+
+            {/* ── Live Phone Preview ─────────────────────────────────── */}
+            <Card className="rounded-3xl border-border bg-card overflow-hidden">
+              <CardHeader className="px-6 pt-6 pb-2">
+                <CardTitle className="text-base font-black flex items-center gap-2">
+                  <Home className="w-4 h-4 text-primary" /> Home Screen Preview
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">Live preview of how the app appears on a device home screen.</p>
+              </CardHeader>
+              <CardContent className="p-6 flex justify-center">
+                <div className="relative">
+                  {/* Phone shell */}
+                  <div className="w-48 h-96 rounded-[2.5rem] border-[6px] border-slate-700 bg-slate-800 shadow-2xl overflow-hidden flex flex-col">
+                    {/* Status bar */}
+                    <div className="h-7 bg-slate-900 flex items-center justify-between px-4 shrink-0">
+                      <span className="text-[8px] text-white font-bold">9:41</span>
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-1.5 rounded-sm bg-white/60" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-white/60" />
+                        <div className="w-2 h-1.5 rounded-sm border border-white/60 flex items-center pr-px"><div className="w-full h-full bg-white/60 rounded-sm" /></div>
+                      </div>
+                    </div>
+                    {/* Home screen */}
+                    <div
+                      className="flex-1 p-4 flex flex-col items-start gap-4"
+                      style={{ background: settings.pwaBackgroundColor || "#1a1a2e" }}
+                    >
+                      {/* Wallpaper dot grid */}
+                      <div className="absolute inset-0 opacity-5 pointer-events-none"
+                        style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "12px 12px" }} />
+                      {/* App icon grid row */}
+                      <div className="flex flex-wrap gap-3 mt-2 relative z-10">
+                        {/* Our PWA icon */}
+                        <div className="flex flex-col items-center gap-1">
+                          <div
+                            className="w-12 h-12 rounded-[14px] flex items-center justify-center overflow-hidden shadow-lg border border-white/10"
+                            style={{ background: settings.pwaThemeColor || "#6D28D9" }}
+                          >
+                            {settings.pwaLogoData ? (
+                              <img src={settings.pwaLogoData} className="w-full h-full object-contain p-1" alt="app icon" />
+                            ) : (
+                              <Smartphone className="w-6 h-6 text-white" />
+                            )}
+                          </div>
+                          <span className="text-[7px] text-white font-semibold text-center leading-tight max-w-[48px] truncate drop-shadow">
+                            {settings.pwaShortName || settings.pwaName || "OneTailor"}
+                          </span>
+                        </div>
+                        {/* Placeholder app icons */}
+                        {[...Array(5)].map((_, i) => (
+                          <div key={i} className="flex flex-col items-center gap-1">
+                            <div className={`w-12 h-12 rounded-[14px] bg-slate-600/50`} />
+                            <div className="w-8 h-1.5 bg-white/20 rounded-full" />
+                          </div>
+                        ))}
+                      </div>
+                      {/* Dock */}
+                      <div className="absolute bottom-3 left-3 right-3 h-16 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-around px-2">
+                        {[...Array(4)].map((_, i) => (
+                          <div key={i} className="w-10 h-10 rounded-[12px] bg-white/20" />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  {/* Notch */}
+                  <div className="absolute top-[6px] left-1/2 -translate-x-1/2 w-16 h-4 bg-slate-900 rounded-b-2xl z-10" />
+                  {/* Side button */}
+                  <div className="absolute right-[-10px] top-20 w-1.5 h-12 bg-slate-600 rounded-r-full" />
+                  <div className="absolute left-[-10px] top-16 w-1.5 h-8 bg-slate-600 rounded-l-full" />
+                  <div className="absolute left-[-10px] top-28 w-1.5 h-8 bg-slate-600 rounded-l-full" />
+                </div>
+              </CardContent>
+            </Card>
+
             <form onSubmit={handleSavePWA} className="space-y-6">
               <Card className="rounded-3xl border-border bg-card overflow-hidden">
                 <CardContent className="p-6 space-y-6">

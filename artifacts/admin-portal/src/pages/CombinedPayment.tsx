@@ -75,6 +75,8 @@ export default function CombinedPayment() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loadingPayments, setLoadingPayments] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterMethod, setFilterMethod] = useState<"all" | "paystack" | "manual">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "success" | "rejected">("all");
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [showRejectDialog, setShowRejectDialog] = useState(false);
@@ -210,10 +212,15 @@ export default function CombinedPayment() {
     }
   };
 
-  const filteredPayments = payments.filter((p) =>
-    p.reference?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.method.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPayments = payments.filter((p) => {
+    const matchesSearch =
+      !searchQuery ||
+      p.reference?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.method.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesMethod = filterMethod === "all" || p.method === filterMethod;
+    const matchesStatus = filterStatus === "all" || p.status === filterStatus;
+    return matchesSearch && matchesMethod && matchesStatus;
+  });
 
   const tabStyle = (active: boolean) => ({
     padding: "0.625rem 1.25rem",
@@ -253,16 +260,45 @@ export default function CombinedPayment() {
       {tab === "overview" && (
         <Card className="rounded-3xl border-none shadow-2xl bg-card overflow-hidden">
           <CardHeader className="border-b border-border/50">
-            <div className="flex flex-col md:flex-row justify-between gap-4">
-              <CardTitle>Transactions</CardTitle>
-              <div className="relative w-full md:w-80">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by reference or method..."
-                  className="pl-10 rounded-xl bg-muted/20 border-border"
-                />
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col md:flex-row justify-between gap-4">
+                <CardTitle>Transactions</CardTitle>
+                <div className="relative w-full md:w-80">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by reference or method..."
+                    className="pl-10 rounded-xl bg-muted/20 border-border"
+                  />
+                </div>
+              </div>
+              {/* Filters */}
+              <div className="flex flex-wrap gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Method:</span>
+                  {(["all", "paystack", "manual"] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setFilterMethod(m)}
+                      className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all ${filterMethod === m ? "bg-primary text-primary-foreground" : "bg-muted/30 text-muted-foreground hover:bg-muted/50"}`}
+                    >
+                      {m === "all" ? "All" : m === "paystack" ? "Paystack" : "Bank Deposit"}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Status:</span>
+                  {(["all", "pending", "success", "rejected"] as const).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setFilterStatus(s)}
+                      className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all capitalize ${filterStatus === s ? "bg-primary text-primary-foreground" : "bg-muted/30 text-muted-foreground hover:bg-muted/50"}`}
+                    >
+                      {s === "all" ? "All" : s}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </CardHeader>

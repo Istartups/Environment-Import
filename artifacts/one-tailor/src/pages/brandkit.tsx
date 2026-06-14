@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { 
   Palette, Upload, Monitor, User, Phone, MessageCircle, Mail,
   Instagram, Facebook, Save, ShieldCheck, Crown, Pipette, Loader2
@@ -187,15 +187,34 @@ export default function BrandKit() {
     accentColor: businessProfile?.brandColors?.accent || "#f5d76e"
   });
 
-  const [logoInput, setLogoInput] = useState<string | null>(appLogo);
-  const [splashInput, setSplashInput] = useState<string | null>(splashImage);
+  const DRAFT_KEY = "brandkit-draft";
+
+  const loadDraft = () => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw) as { form: typeof brandForm; logo: string | null; splash: string | null };
+    } catch { return null; }
+  };
+
+  const draft = loadDraft();
+  const [logoInput, setLogoInput] = useState<string | null>(draft?.logo ?? appLogo);
+  const [splashInput, setSplashInput] = useState<string | null>(draft?.splash ?? splashImage);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingSplash, setUploadingSplash] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [hasDraft, setHasDraft] = useState(!!draft);
 
   const logoInputRef = useRef<HTMLInputElement>(null);
   const splashInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ form: brandForm, logo: logoInput, splash: splashInput }));
+      setHasDraft(true);
+    } catch {}
+  }, [brandForm, logoInput, splashInput]);
 
   const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
 
@@ -317,6 +336,8 @@ export default function BrandKit() {
     });
 
     document.title = brandForm.name.trim();
+    try { localStorage.removeItem("brandkit-draft"); } catch {}
+    setHasDraft(false);
     toast({ title: "Brand Kit Saved!", description: `Your business identity has been updated.` });
   };
 
@@ -326,6 +347,19 @@ export default function BrandKit() {
   return (
     <div className="max-w-xl mx-auto pb-24">
       <PageHeader title="Brand Kit" subtitle="Configure your professional branding" backPath="/settings" />
+      {hasDraft && (
+        <div className="mx-4 mt-3 px-4 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-3">
+          <div className="w-2 h-2 bg-amber-400 rounded-full shrink-0 animate-pulse" />
+          <span className="text-xs font-bold text-amber-500 flex-1">Unsaved draft restored — save to keep changes.</span>
+          <button
+            onClick={() => {
+              localStorage.removeItem("brandkit-draft");
+              setHasDraft(false);
+            }}
+            className="text-[10px] font-bold text-muted-foreground hover:text-foreground"
+          >Discard</button>
+        </div>
+      )}
 
       <div className="px-4 py-5 space-y-6">
         <div className="bg-card border border-border rounded-3xl p-6 space-y-6">

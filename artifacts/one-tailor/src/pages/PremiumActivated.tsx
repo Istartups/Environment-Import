@@ -18,6 +18,7 @@ export default function PremiumActivated() {
   const [licenseData, setLicenseData] = useState<{
     activatedAt?: string;
     method?: string;
+    gateway?: string;
     deviceLimit?: number;
   }>({});
   const [loadingLicense, setLoadingLicense] = useState(false);
@@ -31,9 +32,13 @@ export default function PremiumActivated() {
         .then(r => r.json())
         .then(d => {
           if (d.license) {
+            const rawMethod = d.license.method || "";
+            const gateway = rawMethod === "paystack" ? "Paystack" : rawMethod === "manual" ? "Bank Deposit" : rawMethod || "—";
+            const methodLabel = rawMethod === "paystack" ? "Online (Card / Transfer)" : rawMethod === "manual" ? "Bank Deposit" : rawMethod || "—";
             setLicenseData({
               activatedAt: d.license.createdAt || d.license.activatedAt,
-              method: d.license.method || "—",
+              method: methodLabel,
+              gateway,
               deviceLimit: d.license.deviceLimit || selectedDeviceCount,
             });
           }
@@ -169,6 +174,8 @@ export default function PremiumActivated() {
               { label: "Business",         value: account?.businessName || "—", icon: Users },
               { label: "Payment Date",     value: formatDate(licenseData.activatedAt), icon: Shield },
               { label: "Payment Time",     value: formatTime(licenseData.activatedAt), icon: Shield },
+              { label: "Payment Method",   value: licenseData.method || "—", icon: CreditCard },
+              { label: "Payment Gateway",  value: licenseData.gateway || "—", icon: CreditCard },
               { label: "Devices Licensed", value: `${devicesOwned} Device${devicesOwned !== 1 ? "s" : ""}`, icon: Smartphone },
               { label: "License Status",   value: "Active", icon: Check, highlight: true },
             ].map(({ label, value, icon: Icon, highlight }) => (

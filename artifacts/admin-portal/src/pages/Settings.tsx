@@ -525,8 +525,11 @@ export default function Settings() {
         </div>
       </div>
 
-      <Tabs defaultValue="email" className="w-full">
+      <Tabs defaultValue="appearance" className="w-full">
         <TabsList className="bg-primary/5 border border-primary/10 rounded-2xl p-1 mb-8 flex flex-wrap gap-1">
+          <TabsTrigger value="appearance" className="rounded-xl px-5 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2 font-bold transition-all">
+            <Palette className="w-4 h-4" /> Appearance
+          </TabsTrigger>
           <TabsTrigger value="email" className="rounded-xl px-5 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2 font-bold transition-all">
             <Mail className="w-4 h-4" /> Email
           </TabsTrigger>
@@ -534,6 +537,34 @@ export default function Settings() {
             <Lock className="w-4 h-4" /> Security & Controls
           </TabsTrigger>
         </TabsList>
+
+        {/* ── Appearance ──────────────────────────────────────────── */}
+        <TabsContent value="appearance" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+          <section className="space-y-4">
+            <h2 className="text-xl font-bold flex items-center gap-2 text-foreground">
+              <Sun className="w-5 h-5 text-primary" /> Appearance Mode
+            </h2>
+            <Card className="rounded-3xl border-border bg-card overflow-hidden">
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {(["light", "dark", "system"] as const).map((t) => (
+                    <Button
+                      key={t}
+                      variant={theme === t ? "default" : "outline"}
+                      className={cn("h-20 rounded-2xl flex-col gap-2 font-bold", theme === t ? "bg-primary text-primary-foreground" : "border-border hover:bg-primary/5")}
+                      onClick={() => updateTheme(t)}
+                    >
+                      {t === "light" && <Sun className="w-5 h-5" />}
+                      {t === "dark"  && <Moon className="w-5 h-5" />}
+                      {t === "system" && <Monitor className="w-5 h-5" />}
+                      {t.charAt(0).toUpperCase() + t.slice(1)} Theme
+                    </Button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </section>
+        </TabsContent>
 
 
         <TabsContent value="email" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
