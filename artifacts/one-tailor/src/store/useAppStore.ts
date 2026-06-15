@@ -276,8 +276,8 @@ export const useAppStore = create<AppState>()(
       setBusinessProfile: (profile) => set({ businessProfile: profile }),
       darkMode: false,
       appName: "OneTailor",
-      appLogo: null,
-      splashImage: null,
+      appLogo: (() => { try { return localStorage.getItem("onetailor-logo") || null; } catch { return null; } })(),
+      splashImage: (() => { try { return localStorage.getItem("onetailor-splash") || null; } catch { return null; } })(),
       measurementHistory: [],
       calculationHistory: [],
       whatsappTemplates: [
@@ -391,8 +391,14 @@ export const useAppStore = create<AppState>()(
       setDeviceId: (id) => set({ deviceId: id }),
       setDarkMode: (v) => set({ darkMode: v }),
       setAppName: (name) => set({ appName: name }),
-      setAppLogo: (logo) => set({ appLogo: logo }),
-      setSplashImage: (img) => set({ splashImage: img }),
+      setAppLogo: (logo) => {
+        try { if (logo) localStorage.setItem("onetailor-logo", logo); else localStorage.removeItem("onetailor-logo"); } catch {}
+        set({ appLogo: logo });
+      },
+      setSplashImage: (img) => {
+        try { if (img) localStorage.setItem("onetailor-splash", img); else localStorage.removeItem("onetailor-splash"); } catch {}
+        set({ splashImage: img });
+      },
       addMeasurementHistory: (h) =>
         set((state) => ({ measurementHistory: [h, ...state.measurementHistory].slice(0, 100) })),
       addCalculationHistory: (h) =>
@@ -566,8 +572,8 @@ export const useAppStore = create<AppState>()(
     {
       name: "onetailor-storage",
       partialize: (state) => {
-        // Don't persist mediaWorkspace (large blobs) or account (re-validated from server)
-        const { mediaWorkspace, ...rest } = state;
+        // Exclude large blobs (stored in dedicated localStorage keys) and mediaWorkspace
+        const { mediaWorkspace, appLogo, splashImage, ...rest } = state;
         return rest;
       },
     }

@@ -212,7 +212,6 @@ export default function BrandKit() {
   useEffect(() => {
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify({ form: brandForm, logo: logoInput, splash: splashInput }));
-      setHasDraft(true);
     } catch {}
   }, [brandForm, logoInput, splashInput]);
 

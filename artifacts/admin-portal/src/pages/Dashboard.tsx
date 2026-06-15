@@ -167,27 +167,6 @@ function SidebarContent({ location, healthStatus, theme, toggleTheme, handleLogo
         ))}
       </nav>
 
-      {/* Footer */}
-      <div className="px-2 py-3 border-t border-sidebar-border/50 space-y-1">
-        <button
-          onClick={toggleTheme}
-          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 hover:bg-white/5 active:scale-95 text-sidebar-foreground"
-        >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-white/5">
-            {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
-          </div>
-          {theme === "dark" ? "Light Mode" : "Dark Mode"}
-        </button>
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 hover:bg-red-500/10 active:scale-95 text-red-400"
-        >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-red-500/10">
-            <LogOut size={14} className="text-red-400" />
-          </div>
-          Logout
-        </button>
-      </div>
     </>
   );
 }
@@ -220,8 +199,8 @@ export default function Dashboard({ children }: { children: React.ReactNode }) {
   };
 
   const sidebarStyle = {
-    background: "var(--sidebar)",
-    borderRight: "1px solid var(--sidebar-border)",
+    background: "var(--color-sidebar)",
+    borderRight: "1px solid var(--color-sidebar-border)",
   };
 
   const currentPage = location.replace("/", "") || "Dashboard";
