@@ -204,7 +204,7 @@ export default function BrandKit() {
   const [uploadingSplash, setUploadingSplash] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
-  const [hasDraft, setHasDraft] = useState(!!draft);
+  const [hasDraft, setHasDraft] = useState(!!draft && !businessProfile?.name);
 
   const logoInputRef = useRef<HTMLInputElement>(null);
   const splashInputRef = useRef<HTMLInputElement>(null);

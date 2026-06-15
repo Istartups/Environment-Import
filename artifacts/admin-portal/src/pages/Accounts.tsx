@@ -64,6 +64,8 @@ export default function Accounts() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkMsg, setBulkMsg]         = useState("");
+  const [expiryFilter, setExpiryFilter] = useState<"all" | "expiring_soon" | "expired">("all");
+  const [selectedAccount, setSelectedAccount] = useState<AccountRecord | null>(null);
 
   const fetchAccounts = async () => {
     setLoading(true);
@@ -90,7 +92,18 @@ export default function Accounts() {
       acc.businessName?.toLowerCase().includes(search.toLowerCase()) ||
       acc.phone?.includes(search);
     const matchFilter = filter === "all" || acc.accountStatus === filter;
-    return matchSearch && matchFilter;
+
+    let matchExpiry = true;
+    if (expiryFilter === "expiring_soon" && acc.isPremium && acc.premiumExpiryDate) {
+      const daysUntilExpiry = Math.ceil((new Date(acc.premiumExpiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+      matchExpiry = daysUntilExpiry <= 7 && daysUntilExpiry > 0;
+    } else if (expiryFilter === "expired" && acc.isPremium && acc.premiumExpiryDate) {
+      matchExpiry = new Date(acc.premiumExpiryDate) < new Date();
+    } else if (expiryFilter !== "all") {
+      matchExpiry = false;
+    }
+
+    return matchSearch && matchFilter && matchExpiry;
   });
 
   const allSelected   = filtered.length > 0 && filtered.every(a => selectedIds.has(a.id));
@@ -154,6 +167,36 @@ export default function Accounts() {
     premium:        accounts.filter(a => a.isPremium).length,
     pendingPayment: accounts.filter(a => a.premiumRequestStatus === "payment_submitted").length,
     leads:          accounts.filter(a => a.accountStatus === "Lead").length,
+    expiringSoon:   accounts.filter(a => a.isPremium && a.premiumExpiryDate &&
+      Math.ceil((new Date(a.premiumExpiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) <= 7 &&
+      new Date(a.premiumExpiryDate) > new Date()
+    ).length,
+  };
+
+  const exportToCSV = () => {
+    const headers = ["ID", "Business Name", "Email", "Phone", "Status", "Premium", "Premium Expiry", "Joined", "Last Login", "City", "State", "Country"];
+    const rows = filtered.map(acc => [
+      String(acc.id),
+      acc.businessName || acc.profile?.name || "",
+      acc.email || "",
+      acc.phone || "",
+      acc.accountStatus,
+      acc.isPremium ? "Yes" : "No",
+      acc.premiumExpiryDate ? new Date(acc.premiumExpiryDate).toLocaleDateString() : "",
+      new Date(acc.createdAt).toLocaleDateString(),
+      acc.lastLoginAt ? new Date(acc.lastLoginAt).toLocaleDateString() : "Never",
+      acc.profile?.city || "",
+      acc.profile?.state || "",
+      acc.profile?.country || "",
+    ]);
+    const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `accounts_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -165,22 +208,28 @@ export default function Accounts() {
           <h1 className="text-2xl font-bold">Accounts</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Registered premium accounts and conversion pipeline</p>
         </div>
-        <button
-          onClick={fetchAccounts}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors"
-        >
-          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-          Refresh
-        </button>
+        <div className="flex gap-2">
+          <button onClick={exportToCSV}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-card border border-border text-muted-foreground text-sm font-semibold hover:bg-muted/50 transition-colors">
+            <RefreshCw size={14} className="rotate-90" />
+            Export CSV
+          </button>
+          <button onClick={fetchAccounts}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors">
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { label: "Total Accounts", value: stats.total,          icon: Users,        color: "text-blue-400" },
           { label: "Premium Active", value: stats.premium,        icon: Crown,        color: "text-emerald-400" },
-          { label: "Pending Review", value: stats.pendingPayment, icon: Clock,        color: "text-amber-400" },
-          { label: "Leads",          value: stats.leads,          icon: AlertCircle,  color: "text-slate-400" },
+          { label: "Expiring Soon",  value: stats.expiringSoon,   icon: Clock,        color: "text-amber-400" },
+          { label: "Pending Review", value: stats.pendingPayment, icon: AlertCircle,  color: "text-amber-400" },
+          { label: "Leads",          value: stats.leads,          icon: Users,        color: "text-slate-400" },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="bg-card border border-border rounded-2xl p-4 space-y-2">
             <div className="flex items-center gap-2">
@@ -212,6 +261,30 @@ export default function Accounts() {
               className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors ${filter === s ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:border-primary/30"}`}
             >
               {s === "all" ? "All" : s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Quick Filters + Expiry Filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex gap-2">
+          <button onClick={() => setFilter("Premium Active")}
+            className="px-2 py-1 rounded-lg text-[9px] font-bold bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors">Premium</button>
+          <button onClick={() => setFilter("Lead")}
+            className="px-2 py-1 rounded-lg text-[9px] font-bold bg-slate-500/10 text-slate-400 hover:bg-slate-500/20 transition-colors">Leads</button>
+          <button onClick={() => setFilter("Suspended")}
+            className="px-2 py-1 rounded-lg text-[9px] font-bold bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">Suspended</button>
+        </div>
+        <div className="flex gap-2 overflow-x-auto">
+          {[
+            { value: "all", label: "All Premium" },
+            { value: "expiring_soon", label: "Expiring Soon (7 days)" },
+            { value: "expired", label: "Expired" },
+          ].map(f => (
+            <button key={f.value} onClick={() => setExpiryFilter(f.value as any)}
+              className={`px-3 py-1.5 rounded-xl text-[10px] font-bold whitespace-nowrap transition-colors ${expiryFilter === f.value ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "bg-card border border-border text-muted-foreground hover:border-primary/30"}`}>
+              {f.label}
             </button>
           ))}
         </div>
@@ -296,8 +369,10 @@ export default function Accounts() {
                   <th className="text-left p-4 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Contact</th>
                   <th className="text-left p-4 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Location</th>
                   <th className="text-left p-4 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Status</th>
+                  <th className="text-left p-4 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Premium</th>
                   <th className="text-left p-4 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Joined</th>
                   <th className="text-left p-4 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Last Login</th>
+                  <th className="text-right p-4 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -307,7 +382,7 @@ export default function Accounts() {
                     <tr
                       key={acc.id}
                       className={`hover:bg-muted/20 transition-colors cursor-pointer ${checked ? "bg-primary/5" : ""}`}
-                      onClick={() => toggleSelect(acc.id)}
+                      onClick={() => setSelectedAccount(acc)}
                     >
                       <td className="p-4 w-10" onClick={e => { e.stopPropagation(); toggleSelect(acc.id); }}>
                         {checked
@@ -332,6 +407,20 @@ export default function Accounts() {
                       <td className="p-4">
                         <StatusBadge status={acc.accountStatus} />
                       </td>
+                      <td className="p-4">
+                        {acc.isPremium ? (
+                          <div className="space-y-1">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400">
+                              <Crown size={10} /> Active
+                            </span>
+                            {acc.premiumExpiryDate && (
+                              <p className="text-[9px] text-muted-foreground">Expires: {new Date(acc.premiumExpiryDate).toLocaleDateString()}</p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Free</span>
+                        )}
+                      </td>
                       <td className="p-4 text-xs text-muted-foreground">
                         {new Date(acc.createdAt).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })}
                       </td>
@@ -339,6 +428,31 @@ export default function Accounts() {
                         {acc.lastLoginAt
                           ? new Date(acc.lastLoginAt).toLocaleDateString("en-NG", { day: "numeric", month: "short" })
                           : "Never"}
+                      </td>
+                      <td className="p-4 text-right" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          {!acc.isPremium && acc.accountStatus !== "Suspended" && (
+                            <button onClick={async () => { if (confirm(`Approve premium for ${acc.businessName || acc.email}?`)) { await authFetch(`/api/admin/users/${acc.id}/approve-premium`, { method: "POST" }); fetchAccounts(); } }}
+                              className="p-1.5 rounded-lg hover:bg-emerald-500/10 text-emerald-400 transition-colors" title="Approve Premium">
+                              <Crown size={14} />
+                            </button>
+                          )}
+                          {acc.accountStatus !== "Suspended" ? (
+                            <button onClick={async () => { if (confirm(`Suspend ${acc.businessName || acc.email}?`)) { await authFetch(`/api/admin/users/${acc.id}/suspend`, { method: "POST" }); fetchAccounts(); } }}
+                              className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-400 transition-colors" title="Suspend">
+                              <ShieldOff size={14} />
+                            </button>
+                          ) : (
+                            <button onClick={async () => { if (confirm(`Activate ${acc.businessName || acc.email}?`)) { await authFetch(`/api/admin/users/${acc.id}/activate`, { method: "POST" }); fetchAccounts(); } }}
+                              className="p-1.5 rounded-lg hover:bg-emerald-500/10 text-emerald-400 transition-colors" title="Activate">
+                              <Shield size={14} />
+                            </button>
+                          )}
+                          <button onClick={async () => { if (confirm(`Grant +5 usage bonus to ${acc.businessName || acc.email}?`)) { await authFetch(`/api/admin/users/${acc.id}/grant-bonus`, { method: "POST" }); fetchAccounts(); } }}
+                            className="p-1.5 rounded-lg hover:bg-amber-500/10 text-amber-400 transition-colors" title="Grant Bonus Usage">
+                            <Star size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -353,6 +467,56 @@ export default function Accounts() {
         {filtered.length} of {accounts.length} accounts shown
         {selectedCount > 0 && ` · ${selectedCount} selected`}
       </p>
+
+      {/* Account Details Modal */}
+      {selectedAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedAccount(null)}>
+          <div className="relative max-w-md w-full bg-card border border-border rounded-3xl p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setSelectedAccount(null)} className="absolute top-4 right-4 p-1 rounded-full hover:bg-muted/50">
+              <XCircle size={18} />
+            </button>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                  <Users size={20} className="text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">{selectedAccount.businessName || selectedAccount.profile?.name || "Unknown"}</h3>
+                  <p className="text-xs text-muted-foreground">ID #{selectedAccount.id}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Email</p>
+                  <p className="font-medium">{selectedAccount.email || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Phone</p>
+                  <p className="font-medium">{selectedAccount.phone || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Location</p>
+                  <p className="font-medium">
+                    {[selectedAccount.profile?.city, selectedAccount.profile?.state, selectedAccount.profile?.country].filter(Boolean).join(", ") || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Joined</p>
+                  <p className="font-medium">{new Date(selectedAccount.createdAt).toLocaleDateString()}</p>
+                </div>
+                {selectedAccount.isPremium && (
+                  <div className="col-span-2">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Premium Expiry</p>
+                    <p className="font-medium text-amber-400">
+                      {selectedAccount.premiumExpiryDate ? new Date(selectedAccount.premiumExpiryDate).toLocaleDateString() : "Lifetime"}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

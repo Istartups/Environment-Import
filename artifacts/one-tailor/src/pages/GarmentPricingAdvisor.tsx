@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Tag, RefreshCw, Share2, ArrowRight, Banknote, ChevronDown, X } from "lucide-react";
+import { Tag, RefreshCw, Share2, ArrowRight, Banknote, ChevronDown, X, FileText } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useAppStore } from "@/store/useAppStore";
 import { useToast } from "@/hooks/use-toast";
@@ -120,9 +120,7 @@ export default function PriceSmartly() {
   // ── Fixed display symbol logic ─────────────────────────────────────────
   const displaySymbol = (() => {
     if (!storeCurrencySymbol) return "₦";
-    // If it's a short symbol (1-2 chars like ₦, $, €, R), use it directly
     if (storeCurrencySymbol.length <= 2) return storeCurrencySymbol;
-    // If it's longer (like "KSh"), find the matching symbol
     const found = currencies.find(c => c.symbol === storeCurrencySymbol || c.code === storeCurrencySymbol);
     return found?.symbol || storeCurrencySymbol;
   })();
@@ -134,7 +132,24 @@ export default function PriceSmartly() {
   const [hourlyRate, setHourlyRate] = useState("2000");
   const [complexity, setComplexity] = useState<Complexity>("standard");
   const [selectedPreset, setSelectedPreset] = useState<string>("");
-  const [result, setResult] = useState<{ totalCost: number; min: number; rec: number; prem: number } | null>(null);
+  const [result, setResult] = useState<{ 
+    totalCost: number; 
+    min: number; 
+    rec: number; 
+    prem: number;
+    fabric: number;
+    accessories: number;
+    labor: number;
+    hours: number;
+    rate: number;
+    complexity: Complexity;
+  } | null>(null);
+
+  // ── Customer & Quote Details for Card ──────────────────────────────────
+  const [customerName, setCustomerName] = useState("");
+  const [garmentDescription, setGarmentDescription] = useState("");
+  const [quantity, setQuantity] = useState(1);
+  const [showCustomerFields, setShowCustomerFields] = useState(false);
 
   const formatPrice = (n: number) => {
     return displaySymbol + Math.round(n).toLocaleString("en-NG");
@@ -144,6 +159,7 @@ export default function PriceSmartly() {
     setLaborHours(String(preset.hours));
     setComplexity(preset.complexity);
     setSelectedPreset(preset.name);
+    setGarmentDescription(preset.name);
     setResult(null);
   };
 
@@ -157,9 +173,15 @@ export default function PriceSmartly() {
     const mults = COMPLEXITY_MULTIPLIER[complexity];
     setResult({
       totalCost,
-      min:  totalCost * mults.min,
-      rec:  totalCost * mults.rec,
+      min: totalCost * mults.min,
+      rec: totalCost * mults.rec,
       prem: totalCost * mults.prem,
+      fabric,
+      accessories: acc,
+      labor: hours * rate,
+      hours,
+      rate,
+      complexity,
     });
     await incrementUsage();
   };
@@ -170,10 +192,46 @@ export default function PriceSmartly() {
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   };
 
+  const generateQuoteCard = () => {
+    if (!result) {
+      toast({ title: "Calculate first", description: "Please calculate the price before generating a quote card." });
+      return;
+    }
+
+    if (!customerName.trim()) {
+      toast({ title: "Customer name required", description: "Please enter customer name for the quote card." });
+      setShowCustomerFields(true);
+      return;
+    }
+
+    // Prepare quote data to pass to QuoteCardGenerator
+    const quoteData = {
+      customerName: customerName.trim(),
+      garmentName: garmentDescription.trim() || selectedPreset || "Custom Garment",
+      quantity,
+      fabricCost: result.fabric,
+      accessoriesCost: result.accessories,
+      laborCost: result.labor,
+      laborHours: result.hours,
+      hourlyRate: result.rate,
+      subtotal: result.totalCost,
+      totalPrice: result.rec,
+      complexity: COMPLEXITY_LABELS[complexity].label,
+      complexityRaw: complexity,
+      date: new Date().toISOString(),
+      validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      currencySymbol: displaySymbol,
+      currencyCode: storeCurrencyCode || "NGN",
+    };
+
+    // Navigate to quote card generator with state
+    setLocation("/quote-card", { state: { quoteData } });
+  };
+
   const inp = "w-full text-sm rounded-xl px-3 py-2.5 outline-none border border-border bg-background text-foreground";
 
   return (
-    <div className="max-w-lg mx-auto">
+    <div className="max-w-lg mx-auto pb-24">
       <PageHeader 
         title="Price Smartly" 
         subtitle="Quick price check for any garment" 
@@ -276,6 +334,56 @@ export default function PriceSmartly() {
           </div>
         )}
 
+        {/* ── Customer Details (Collapsible) ────────────────────────────── */}
+        <div className="bg-card border border-border rounded-2xl p-4 space-y-3 shadow-sm">
+          <button
+            onClick={() => setShowCustomerFields(!showCustomerFields)}
+            className="w-full flex items-center justify-between"
+          >
+            <div className="flex items-center gap-2">
+              <FileText size={14} className="text-primary" />
+              <span className="text-xs font-bold">Customer & Quote Details</span>
+            </div>
+            <ChevronDown size={14} className={`transition-transform ${showCustomerFields ? "rotate-180" : ""}`} />
+          </button>
+
+          {showCustomerFields && (
+            <div className="space-y-3 pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1.5 block">Customer Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Mrs. Adebayo"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className={inp}
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1.5 block">Garment Description</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 3-Piece Agbada with Embroidery"
+                  value={garmentDescription}
+                  onChange={(e) => setGarmentDescription(e.target.value)}
+                  className={inp}
+                />
+                <p className="text-[9px] text-muted-foreground mt-1">Leave blank to use preset name</p>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1.5 block">Quantity</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={quantity}
+                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  className={inp}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* ── Quick garment presets ──────────────────────────────────────── */}
         <div className="bg-card border border-border rounded-2xl p-4 space-y-3 shadow-sm">
           <div className="flex items-center justify-between">
@@ -344,7 +452,7 @@ export default function PriceSmartly() {
           </div>
         </div>
 
-        {/* ── Calculate / Result ─────────────────────────────────────────── */}
+        {/* ── Calculate Button ───────────────────────────────────────────── */}
         {!result ? (
           <button onClick={calculate} disabled={!fabricCost && !laborHours}
             className="w-full py-4 bg-primary text-primary-foreground font-bold rounded-xl active:scale-[0.98] transition-all disabled:opacity-50">
@@ -352,6 +460,7 @@ export default function PriceSmartly() {
           </button>
         ) : (
           <>
+            {/* Result Display */}
             <div className="bg-card border border-primary/20 rounded-2xl p-5 space-y-4 shadow-lg shadow-primary/5 animate-in fade-in zoom-in duration-300">
               <div className="flex items-center justify-between border-b border-border pb-3">
                 <div>
@@ -408,13 +517,22 @@ export default function PriceSmartly() {
                   <RefreshCw size={14} /> Reset
                 </button>
               </div>
+
+              {/* Generate Quote Card Button */}
+              <button 
+                onClick={generateQuoteCard}
+                className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all mt-2"
+              >
+                <FileText size={16} />
+                Generate Professional Quote Card
+              </button>
             </div>
 
             <button
               onClick={() => setLocation("/fabric-cost")}
               className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold text-muted-foreground hover:text-primary transition-colors"
             >
-              Need a full breakdown? Open Quote Builder <ArrowRight size={12} />
+              Need a full breakdown? Open Fabric Cost <ArrowRight size={12} />
             </button>
           </>
         )}

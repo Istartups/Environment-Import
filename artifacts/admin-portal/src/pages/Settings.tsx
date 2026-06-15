@@ -21,6 +21,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { 
   Loader2, 
   Save, 
@@ -205,7 +207,7 @@ function ChangePasswordCard() {
   );
 }
 
-function TestEmailButton() {
+function TestEmailButton({ onSent }: { onSent?: () => void }) {
   const [to, setTo] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -223,6 +225,7 @@ function TestEmailButton() {
       const data = await res.json();
       if (res.ok) {
         setSent(true);
+        onSent?.();
         toast({ title: "Test Email Sent", description: `Delivered to ${to}` });
         setTimeout(() => setSent(false), 4000);
       } else {
@@ -262,6 +265,38 @@ function TestEmailButton() {
   );
 }
 
+function TestSmtpButton({ onResult }: { onResult?: (working: boolean) => void }) {
+  const [testing, setTesting] = useState(false);
+  const { toast } = useToast();
+
+  const testConnection = async () => {
+    setTesting(true);
+    try {
+      const res = await authFetch("/api/admin/test-smtp", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        toast({ title: "SMTP Test Passed", description: data.message });
+        onResult?.(true);
+      } else {
+        toast({ variant: "destructive", title: "SMTP Test Failed", description: data.message });
+        onResult?.(false);
+      }
+    } catch {
+      toast({ variant: "destructive", title: "Error", description: "Could not test SMTP" });
+      onResult?.(false);
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <Button type="button" variant="outline" onClick={testConnection} disabled={testing} className="h-10 px-4 rounded-xl gap-2">
+      {testing ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+      {testing ? "Testing..." : "Test SMTP Connection"}
+    </Button>
+  );
+}
+
 export default function Settings() {
   const [theme, setTheme] = useState<"light" | "dark" | "system">(() => {
     if (typeof window !== 'undefined') {
@@ -275,7 +310,7 @@ export default function Settings() {
   const updateTheme = (newTheme: "light" | "dark" | "system") => {
     setTheme(newTheme);
     localStorage.setItem("admin_theme", newTheme);
-    
+
     if (newTheme === "system") {
       const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       document.documentElement.classList.toggle("dark", systemTheme === "dark");
@@ -287,6 +322,21 @@ export default function Settings() {
   const [showSmtpPass, setShowSmtpPass] = useState(false);
   const [showResendKey, setShowResendKey] = useState(false);
   const [emailSaving, setEmailSaving] = useState(false);
+  const [lastEmailTest, setLastEmailTest] = useState<string | null>(null);
+  const [smtpStatus, setSmtpStatus] = useState<{ tested: boolean; working: boolean } | null>(null);
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("admin_theme") as "light" | "dark" | "system" | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+      if (savedTheme === "system") {
+        const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.classList.toggle("dark", systemDark);
+      } else {
+        document.documentElement.classList.toggle("dark", savedTheme === "dark");
+      }
+    }
+  }, []);
 
   const [settings, setSettings] = useState<PaymentInfo>({
     price: "",
@@ -472,7 +522,7 @@ export default function Settings() {
 
   const handleResetUsage = async () => {
     if (!confirm("This will reset tool usage counters for ALL users. Users who reached their limit will be able to use tools again. Proceed?")) return;
-    
+
     setSaving(true);
     try {
       const res = await authFetch("/api/admin/reset-usage", { method: "POST" });
@@ -487,8 +537,12 @@ export default function Settings() {
   };
 
   const handleResetData = async () => {
-    if (!confirm("CRITICAL ACTION: This will permanently wipe all users, licenses, and payment history. Are you absolutely sure?")) return;
-    
+    const confirmText = prompt("Type 'DELETE ALL DATA' to confirm this irreversible action:");
+    if (confirmText !== "DELETE ALL DATA") {
+      toast({ title: "Cancelled", description: "No changes were made." });
+      return;
+    }
+
     setSaving(true);
     try {
       const res = await authFetch("/api/admin/reset-database", { method: "POST" });
@@ -526,6 +580,27 @@ export default function Settings() {
           <p className="text-muted-foreground mt-1 text-sm font-medium">Email delivery and security controls.</p>
         </div>
       </div>
+
+      {/* ── Environment Info ── */}
+      <Card className="rounded-2xl bg-muted/20 border-border overflow-hidden">
+        <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Info size={14} className="text-primary" />
+            </div>
+            <div>
+              <p className="text-xs font-bold">Environment</p>
+              <p className="text-[10px] text-muted-foreground">
+                {import.meta.env.DEV ? "Development" : "Production"} • API: {window.location.origin}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${settings.isDebugMode ? "bg-amber-500 animate-pulse" : "bg-emerald-500"}`} />
+            <span className="text-[10px] font-mono text-muted-foreground">Debug Mode: {settings.isDebugMode ? "ON" : "OFF"}</span>
+          </div>
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="appearance" className="w-full">
         <TabsList className="bg-primary/5 border border-primary/10 rounded-2xl p-1 mb-8 flex flex-wrap gap-1">
@@ -612,7 +687,10 @@ export default function Settings() {
             }} className="space-y-6">
 
               {/* Test Email */}
-              <TestEmailButton />
+              <TestEmailButton onSent={() => setLastEmailTest(new Date().toLocaleString())} />
+              {lastEmailTest && (
+                <p className="text-[10px] text-muted-foreground text-right">Last test: {lastEmailTest}</p>
+              )}
 
               {/* Resend Section */}
               <Card className="rounded-3xl border-border bg-card overflow-hidden">
@@ -633,7 +711,14 @@ export default function Settings() {
                 </CardHeader>
                 <CardContent className="p-6">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">Resend API Key</label>
+                    <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1 flex items-center gap-2">
+                      Resend API Key
+                      {settings.resendApiKey && settings.resendApiKey.length > 10 && (
+                        <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <CheckCircle size={10} /> Key provided
+                        </span>
+                      )}
+                    </label>
                     <div className="relative">
                       <Input
                         type={showResendKey ? "text" : "password"}
@@ -647,10 +732,18 @@ export default function Settings() {
                         {showResendKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
-                    <p className="text-[11px] text-muted-foreground px-1">Leave blank to keep the existing key. Filled key will replace it.</p>
+                    <p className="text-[11px] text-muted-foreground px-1">Get your API key from <a href="https://resend.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">resend.com</a>. Leave blank to keep existing key.</p>
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Provider Priority Alert */}
+              <Alert className="rounded-xl bg-primary/5 border-primary/20">
+                <Info className="w-4 h-4 text-primary" />
+                <AlertDescription className="text-xs text-muted-foreground">
+                  <strong>Provider priority:</strong> Resend takes precedence over SMTP if both are configured and enabled. Disable Resend to force SMTP usage.
+                </AlertDescription>
+              </Alert>
 
               {/* SMTP Section */}
               <Card className="rounded-3xl border-border bg-card overflow-hidden">
@@ -658,9 +751,14 @@ export default function Settings() {
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-base font-black flex items-center gap-2">
                       <Globe className="w-4 h-4 text-primary" /> SMTP (Custom Mail Server)
+                      {smtpStatus?.tested && (
+                        <Badge variant={smtpStatus.working ? "default" : "destructive"} className="text-[9px]">
+                          {smtpStatus.working ? "Connected" : "Failed"}
+                        </Badge>
+                      )}
                     </CardTitle>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">Enabled</span>
+                      <TestSmtpButton onResult={(working) => setSmtpStatus({ tested: true, working })} />
                       <Switch
                         checked={(settings as any).isSmtpEnabled ?? true}
                         onCheckedChange={(v) => setSettings({ ...settings, isSmtpEnabled: v } as any)}
@@ -775,7 +873,7 @@ export default function Settings() {
 
             {/* Change Admin Password */}
             <ChangePasswordCard />
-            
+
             <Card className="rounded-3xl border-amber-500/20 bg-amber-500/5 overflow-hidden">
               <CardContent className="p-8 space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">

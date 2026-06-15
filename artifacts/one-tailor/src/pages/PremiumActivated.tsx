@@ -200,27 +200,108 @@ export default function PremiumActivated() {
         </div>
       </div>
 
-      {/* ── Quick Actions (tools FIRST) ───────────────────────────────────── */}
-      <div className="space-y-2">
-        <p className="text-xs font-black uppercase tracking-widest text-muted-foreground px-1">Try Your Premium Tools</p>
-        <div className="grid grid-cols-4 gap-2">
-          {QUICK_ACTIONS.map(({ icon: Icon, label, desc, path, color, bg }) => (
-            <button
-              key={path}
-              onClick={() => navigate(path)}
-              className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all active:scale-[0.97] text-center"
-            >
-              <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${bg}`}>
-                <Icon size={16} className={color} />
-              </div>
-              <div>
-                <p className="text-[9px] font-black leading-tight">{label}</p>
-                <p className="text-[8px] text-muted-foreground mt-0.5">{desc}</p>
-              </div>
-            </button>
-          ))}
+      {/* ── Payment History ───────────────────────────────────────────────── */}
+      {paymentHistory.length > 0 && (
+        <div className="bg-card border border-border rounded-3xl overflow-hidden">
+          <button
+            onClick={() => setShowHistory(h => !h)}
+            className="w-full flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/20 hover:bg-muted/30 transition-colors"
+          >
+            <History size={14} className="text-muted-foreground" />
+            <p className="text-xs font-black uppercase tracking-widest text-muted-foreground flex-1 text-left">
+              Payment & Upgrade History
+            </p>
+            <span className="text-[10px] text-muted-foreground font-medium">
+              {showHistory ? "Hide" : `Show ${paymentHistory.length}`}
+            </span>
+          </button>
+          {showHistory && (
+            <div className="divide-y divide-border/50">
+              {paymentHistory.map((p) => (
+                <div key={p.id} className="flex items-center gap-4 px-5 py-3.5">
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${
+                    p.status === "success" ? "bg-emerald-500"
+                    : p.status === "pending" ? "bg-amber-500"
+                    : "bg-red-500"
+                  }`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold">{methodLabel(p.method)}</p>
+                    <p className="text-[10px] text-muted-foreground">{formatDate(p.createdAt)}</p>
+                    {p.reference && (
+                      <p className="text-[9px] text-muted-foreground/60 font-mono truncate">{p.reference}</p>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs font-bold">{formatAmount(p.amount)}</p>
+                    <p className={`text-[9px] font-bold capitalize ${
+                      p.status === "success" ? "text-emerald-500"
+                      : p.status === "pending" ? "text-amber-500"
+                      : "text-red-500"
+                    }`}>{p.status}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+      )}
+
+      {/* ── Device section ──────────────────────────────────────────────────── */}
+      <div className="p-5 bg-primary/5 border border-primary/15 rounded-3xl space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
+            <Smartphone size={20} className="text-primary" />
+          </div>
+          <div>
+            <p className="text-sm font-bold">Device Activation Control</p>
+            <p className="text-xs text-muted-foreground">Your premium access is protected.</p>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Your membership is linked to your account. Access is available on{" "}
+          <span className="font-bold text-primary">{devicesOwned} authorised device{devicesOwned !== 1 ? "s" : ""}</span>{" "}
+          at a time. To use Premium on more devices, expand your license below.
+        </p>
       </div>
+
+      {/* ── Expand License → Device Plans ────────────────────────────────── */}
+      <button
+        onClick={() => navigate("/device-plans")}
+        className="w-full p-5 bg-card border-2 border-dashed border-border rounded-3xl flex items-center gap-4 hover:border-primary/40 transition-all active:scale-[0.98] group"
+      >
+        <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shrink-0 group-hover:bg-primary/20 transition-colors">
+          <Plus size={24} />
+        </div>
+        <div className="text-left flex-1">
+          <p className="font-bold text-sm">Expand Your License</p>
+          <p className="text-xs text-muted-foreground mt-0.5">View device plans and add more devices to your account</p>
+        </div>
+        <ChevronRight size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
+      </button>
+
+      {/* ── Quick Actions (tools) ─────────────────────────────────────────── */}
+      {isPremium && (
+        <div className="space-y-2">
+          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground px-1">Try Your Premium Tools</p>
+          <div className="grid grid-cols-4 gap-2">
+            {QUICK_ACTIONS.map(({ icon: Icon, label, desc, path, color, bg }) => (
+              <button
+                key={path}
+                onClick={() => navigate(path)}
+                className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all active:scale-[0.97] text-center"
+              >
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${bg}`}>
+                  <Icon size={16} className={color} />
+                </div>
+                <div>
+                  <p className="text-[9px] font-black leading-tight">{label}</p>
+                  <p className="text-[8px] text-muted-foreground mt-0.5">{desc}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Your Premium Includes ─────────────────────────────────────────── */}
       <div className="space-y-2">
@@ -295,85 +376,6 @@ export default function PremiumActivated() {
           )}
         </div>
       </div>
-
-      {/* ── Payment History ───────────────────────────────────────────────── */}
-      {paymentHistory.length > 0 && (
-        <div className="bg-card border border-border rounded-3xl overflow-hidden">
-          <button
-            onClick={() => setShowHistory(h => !h)}
-            className="w-full flex items-center gap-3 px-5 py-4 border-b border-border bg-muted/20 hover:bg-muted/30 transition-colors"
-          >
-            <History size={14} className="text-muted-foreground" />
-            <p className="text-xs font-black uppercase tracking-widest text-muted-foreground flex-1 text-left">
-              Payment & Upgrade History
-            </p>
-            <span className="text-[10px] text-muted-foreground font-medium">
-              {showHistory ? "Hide" : `Show ${paymentHistory.length}`}
-            </span>
-          </button>
-          {showHistory && (
-            <div className="divide-y divide-border/50">
-              {paymentHistory.map((p) => (
-                <div key={p.id} className="flex items-center gap-4 px-5 py-3.5">
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${
-                    p.status === "success" ? "bg-emerald-500"
-                    : p.status === "pending" ? "bg-amber-500"
-                    : "bg-red-500"
-                  }`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold">{methodLabel(p.method)}</p>
-                    <p className="text-[10px] text-muted-foreground">{formatDate(p.createdAt)}</p>
-                    {p.reference && (
-                      <p className="text-[9px] text-muted-foreground/60 font-mono truncate">{p.reference}</p>
-                    )}
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-xs font-bold">{formatAmount(p.amount)}</p>
-                    <p className={`text-[9px] font-bold capitalize ${
-                      p.status === "success" ? "text-emerald-500"
-                      : p.status === "pending" ? "text-amber-500"
-                      : "text-red-500"
-                    }`}>{p.status}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Device section (AFTER tools) ─────────────────────────────────── */}
-      <div className="p-5 bg-primary/5 border border-primary/15 rounded-3xl space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
-            <Smartphone size={20} className="text-primary" />
-          </div>
-          <div>
-            <p className="text-sm font-bold">Device Activation Control</p>
-            <p className="text-xs text-muted-foreground">Your premium access is protected.</p>
-          </div>
-        </div>
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          Your membership is linked to your account. Access is available on{" "}
-          <span className="font-bold text-primary">{devicesOwned} authorised device{devicesOwned !== 1 ? "s" : ""}</span>{" "}
-          at a time. To use Premium on more devices, expand your license below.
-        </p>
-      </div>
-
-      {/* ── Expand License → Device Plans ────────────────────────────────── */}
-      <button
-        onClick={() => navigate("/device-plans")}
-        className="w-full p-5 bg-card border-2 border-dashed border-border rounded-3xl flex items-center gap-4 hover:border-primary/40 transition-all active:scale-[0.98] group"
-      >
-        <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shrink-0 group-hover:bg-primary/20 transition-colors">
-          <Plus size={24} />
-        </div>
-        <div className="text-left flex-1">
-          <p className="font-bold text-sm">Expand Your License</p>
-          <p className="text-xs text-muted-foreground mt-0.5">View device plans and add more devices to your account</p>
-        </div>
-        <ChevronRight size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
-      </button>
 
       {/* ── Refer a Friend ────────────────────────────────────────────────── */}
       <button

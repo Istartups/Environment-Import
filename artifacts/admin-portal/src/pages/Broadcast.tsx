@@ -39,6 +39,14 @@ export default function Broadcast() {
   const [sending, setSending] = useState(false);
   const [segment, setSegment] = useState<Segment>("all");
   const [subStats, setSubStats] = useState<SubStats | null>(null);
+  const [sendMode, setSendMode] = useState<"now" | "schedule">("now");
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("");
+  const [scheduledBroadcasts, setScheduledBroadcasts] = useState<any[]>([]);
+  const [testEmail, setTestEmail] = useState("");
+  const [sendingTest, setSendingTest] = useState(false);
+  const [charCount, setCharCount] = useState(0);
+  const [history, setHistory] = useState<any[]>([]);
   const promoImageRef = React.useRef<HTMLInputElement>(null);
   const contentImageRef = React.useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -48,35 +56,67 @@ export default function Broadcast() {
       .then(r => r.json())
       .then(d => setSubStats(d))
       .catch(() => {});
+    fetchScheduledBroadcasts();
+    authFetch("/api/admin/notifications/history")
+      .then(r => r.json())
+      .then(d => setHistory(d))
+      .catch(() => {});
   }, []);
+
+  const fetchScheduledBroadcasts = async () => {
+    try {
+      const res = await authFetch("/api/admin/notifications/scheduled");
+      if (res.ok) setScheduledBroadcasts(await res.json());
+    } catch {}
+  };
+
+  const templates = [
+    { name: "Feature Update", title: "✨ New Feature Available!", body: "We've added new tools to help you manage your tailoring business more efficiently. Check them out now!" },
+    { name: "Premium Reminder", title: "⭐ Unlock Premium Features", body: "Upgrade to Premium today and get unlimited customers, branded cards, and priority support!" },
+    { name: "Maintenance", title: "🔧 Scheduled Maintenance", body: "We'll be performing system maintenance. The app may be unavailable for a few minutes." },
+  ];
+
+  const applyTemplate = (t: typeof templates[0]) => {
+    setTitle(t.title);
+    setBody(t.body);
+    setCharCount(t.body.length);
+  };
 
   const targetCount = !subStats ? null
     : segment === "premium" ? subStats.premiumCount
     : segment === "free" ? subStats.freeCount
     : subStats.subscriberCount;
 
+  const buildPayload = () => ({
+    title, body, url, segment,
+    ctaText: ctaText || null,
+    ctaUrl: ctaUrl || null,
+    promoImage: promoImage || null,
+    contentImage: contentImage || null,
+  });
+
+  const clearForm = () => {
+    setTitle(""); setBody(""); setUrl("/");
+    setCtaText(""); setCtaUrl("");
+    setPromoImage(""); setContentImage("");
+    setCharCount(0);
+    setScheduleDate(""); setScheduleTime("");
+  };
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !body) return;
-
     setSending(true);
     try {
       const res = await authFetch("/api/admin/notifications/broadcast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, body, url, segment, ctaText: ctaText || null, ctaUrl: ctaUrl || null, promoImage: promoImage || null, contentImage: contentImage || null }),
+        body: JSON.stringify(buildPayload()),
       });
-
       const data = await res.json();
       if (res.ok) {
         toast({ title: "Broadcast Sent", description: data.message });
-        setTitle("");
-        setBody("");
-        setUrl("/");
-        setCtaText("");
-        setCtaUrl("");
-        setPromoImage("");
-        setContentImage("");
+        clearForm();
       } else {
         toast({ variant: "destructive", title: "Failed", description: data.message });
       }
@@ -84,6 +124,61 @@ export default function Broadcast() {
       toast({ variant: "destructive", title: "Error", description: "Could not send broadcast" });
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleSchedule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title || !body) return;
+    if (!scheduleDate || !scheduleTime) {
+      toast({ title: "Missing Date/Time", description: "Please select both date and time for scheduling." });
+      return;
+    }
+    const scheduledAt = new Date(`${scheduleDate}T${scheduleTime}`);
+    if (scheduledAt <= new Date()) {
+      toast({ title: "Invalid Date", description: "Schedule time must be in the future." });
+      return;
+    }
+    setSending(true);
+    try {
+      const res = await authFetch("/api/admin/notifications/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...buildPayload(), scheduledAt: scheduledAt.toISOString() }),
+      });
+      if (res.ok) {
+        toast({ title: "Broadcast Scheduled", description: `Will send on ${scheduledAt.toLocaleString()}` });
+        clearForm();
+        fetchScheduledBroadcasts();
+      } else {
+        const data = await res.json();
+        toast({ variant: "destructive", title: "Failed", description: data.message });
+      }
+    } catch {
+      toast({ variant: "destructive", title: "Error" });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleTestSend = async () => {
+    if (!testEmail || !title || !body) return;
+    setSendingTest(true);
+    try {
+      const res = await authFetch("/api/admin/notifications/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...buildPayload(), testEmail }),
+      });
+      if (res.ok) {
+        toast({ title: "Test Sent", description: `Sent to ${testEmail}` });
+      } else {
+        toast({ variant: "destructive", title: "Failed", description: "Could not send test" });
+      }
+    } catch {
+      toast({ variant: "destructive", title: "Error" });
+    } finally {
+      setSendingTest(false);
     }
   };
 
@@ -105,12 +200,34 @@ export default function Broadcast() {
               <CardDescription>Compose your message below. It will be delivered to mobile and PC devices.</CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSend} className="space-y-4">
+              <form onSubmit={sendMode === "now" ? handleSend : handleSchedule} className="space-y-4">
+                {/* Send Mode Toggle */}
+                <div className="flex gap-2 mb-2">
+                  <button type="button" onClick={() => setSendMode("now")}
+                    className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${sendMode === "now" ? "bg-primary text-primary-foreground" : "bg-muted/30 text-muted-foreground"}`}>
+                    Send Now
+                  </button>
+                  <button type="button" onClick={() => setSendMode("schedule")}
+                    className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${sendMode === "schedule" ? "bg-primary text-primary-foreground" : "bg-muted/30 text-muted-foreground"}`}>
+                    Schedule Later
+                  </button>
+                </div>
+
+                {/* Template Presets */}
+                <div className="flex flex-wrap gap-2">
+                  {templates.map((t) => (
+                    <button key={t.name} type="button" onClick={() => applyTemplate(t)}
+                      className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-muted/30 hover:bg-muted/50 text-muted-foreground transition-colors">
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase text-primary/60 px-1">Notification Title</label>
-                  <Input 
+                  <Input
                     required
-                    placeholder="e.g. New Feature Update!" 
+                    placeholder="e.g. New Feature Update!"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     className="h-12 rounded-xl bg-muted/20"
@@ -118,13 +235,16 @@ export default function Broadcast() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase text-primary/60 px-1">Message Body</label>
-                  <Textarea 
+                  <Textarea
                     required
-                    placeholder="Enter your notification message here..." 
+                    placeholder="Enter your notification message here..."
                     value={body}
-                    onChange={(e) => setBody(e.target.value)}
+                    onChange={(e) => { setBody(e.target.value); setCharCount(e.target.value.length); }}
                     className="rounded-xl bg-muted/20 min-h-[120px] resize-none"
                   />
+                  <span className={`text-[10px] text-right block mt-1 ${charCount > 200 ? "text-red-400" : "text-muted-foreground"}`}>
+                    {charCount} / 200 characters
+                  </span>
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase text-primary/60 px-1">Redirect URL (Optional)</label>
@@ -135,6 +255,25 @@ export default function Broadcast() {
                     className="h-12 rounded-xl bg-muted/20"
                   />
                 </div>
+                {sendMode === "schedule" && (
+                  <div className="rounded-2xl border border-primary/10 bg-primary/5 p-4 space-y-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Schedule Delivery</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground px-1">Date</label>
+                        <input type="date" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)}
+                          min={new Date().toISOString().split("T")[0]}
+                          className="w-full h-11 px-3 rounded-xl bg-muted/20 border border-border" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground px-1">Time</label>
+                        <input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)}
+                          className="w-full h-11 px-3 rounded-xl bg-muted/20 border border-border" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="rounded-2xl border border-primary/10 bg-primary/5 p-4 space-y-3">
                   <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Images (Optional)</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -221,16 +360,88 @@ export default function Broadcast() {
                   </div>
                   <p className="text-[10px] text-muted-foreground">Adds an action button users can tap directly from the notification.</p>
                 </div>
-                <Button 
-                  type="submit" 
-                  disabled={sending || !title || !body} 
+                <Button
+                  type="submit"
+                  disabled={sending || !title || !body || (sendMode === "schedule" && (!scheduleDate || !scheduleTime))}
                   className="w-full h-14 rounded-2xl font-bold text-lg gap-2 mt-4"
                 >
-                  {sending ? <Loader2 className="animate-spin" /> : <Send size={20} />}
-                  {segment === "all" ? "Send to All Subscribers" : segment === "premium" ? "Send to Premium Users" : "Send to Free Users"}
-                  {targetCount !== null && ` (${targetCount})`}
+                  {sending ? <Loader2 className="animate-spin" /> : sendMode === "now" ? <Send size={20} /> : <Bell size={20} />}
+                  {sendMode === "now"
+                    ? `${segment === "all" ? "Send to All" : segment === "premium" ? "Send to Premium" : "Send to Free"} (${targetCount || 0})`
+                    : `Schedule ${segment === "all" ? "for All" : segment === "premium" ? "for Premium" : "for Free"} (${targetCount || 0})`
+                  }
                 </Button>
               </form>
+
+              {/* Test Broadcast Section */}
+              <div className="rounded-2xl border border-primary/10 bg-primary/5 p-4 space-y-3 mt-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Send Test (Email)</p>
+                <div className="flex gap-2">
+                  <Input type="email" placeholder="your@email.com" value={testEmail}
+                    onChange={e => setTestEmail(e.target.value)} className="h-11 rounded-xl bg-muted/20" />
+                  <Button type="button" onClick={handleTestSend}
+                    disabled={sendingTest || !testEmail || !title || !body}
+                    variant="outline" className="h-11 px-4 rounded-xl gap-2">
+                    {sendingTest ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                    Test
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Sends a preview to your email for testing before broadcasting.</p>
+              </div>
+
+              {/* Scheduled Broadcasts */}
+              {scheduledBroadcasts.length > 0 && (
+                <div className="mt-6 space-y-3">
+                  <h3 className="text-sm font-bold flex items-center gap-2">
+                    <Bell size={14} className="text-primary" /> Scheduled Broadcasts
+                  </h3>
+                  <div className="space-y-2">
+                    {scheduledBroadcasts.map((b: any) => (
+                      <div key={b.id} className="p-3 rounded-xl bg-muted/20 border border-border flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold truncate">{b.title}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {new Date(b.scheduledAt).toLocaleString()} • {b.segment === "all" ? "All" : b.segment === "premium" ? "Premium" : "Free"}
+                          </p>
+                        </div>
+                        <Button variant="ghost" size="sm"
+                          onClick={async () => {
+                            if (confirm("Cancel this scheduled broadcast?")) {
+                              await authFetch(`/api/admin/notifications/schedule/${b.id}`, { method: "DELETE" });
+                              fetchScheduledBroadcasts();
+                              toast({ title: "Cancelled", description: "Broadcast removed from schedule." });
+                            }
+                          }}
+                          className="text-red-500 hover:text-red-400">Cancel</Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Broadcast History */}
+              {history.length > 0 && (
+                <div className="mt-8">
+                  <h3 className="text-sm font-bold flex items-center gap-2 mb-3">
+                    <Bell size={14} className="text-primary" /> Recent Broadcasts
+                  </h3>
+                  <div className="space-y-2">
+                    {history.slice(0, 5).map((b: any) => (
+                      <div key={b.id} className="p-3 rounded-xl bg-muted/10 border border-border/50">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-bold truncate flex-1">{b.title}</p>
+                          <span className="text-[9px] text-muted-foreground">{new Date(b.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1 line-clamp-1">{b.body}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[9px] text-primary">{b.segment === "all" ? "All Users" : b.segment === "premium" ? "Premium" : "Free"}</span>
+                          <span className="text-[9px] text-green-500">{b.sentCount || "?"} delivered</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

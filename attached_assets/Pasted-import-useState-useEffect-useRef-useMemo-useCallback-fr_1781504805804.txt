@@ -1,0 +1,1255 @@
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import {
+  Palette, Download, Printer, ShieldCheck, Users, ChevronRight,
+  MapPin, Phone, MessageCircle, Quote, Share2, AlertCircle,
+  Instagram, Facebook, Youtube, Lock, Wand2, Mail, Copy, Sparkles, Sun, Moon,
+  FileText, CheckCircle, Clock, Tag, Banknote, Calendar, TrendingUp
+} from "lucide-react";
+import { useAppStore } from "@/store/useAppStore";
+import { useLocation } from "wouter";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { Button } from "@/components/ui/button";
+import { getDeviceId } from "@/lib/utils";
+import html2canvas from "html2canvas";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface QuoteData {
+  customerName: string;
+  garmentName: string;
+  quantity: number;
+  fabricCost: number;
+  accessoriesCost: number;
+  laborCost: number;
+  laborHours: number;
+  hourlyRate: number;
+  subtotal: number;
+  totalPrice: number;
+  complexity: string;
+  complexityRaw: string;
+  date: string;
+  validUntil: string;
+  currencySymbol: string;
+  currencyCode: string;
+}
+
+type ColorMode = "theme" | "brand";
+type ColorCombination = "single" | "dual" | "triple";
+type BgMode = "auto" | "light" | "dark";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const DEFAULT_QUOTE_NOTE = "This quote is valid for 30 days. Prices are subject to change based on fabric availability.";
+
+const THEMES = [
+  { id: "dark",    label: "Classic Dark",    bg: "bg-slate-900",   text: "text-white",       border: "border-white/10",        accent: "text-amber-400",   hex: "#0f172a", hexAccent: "#fbbf24" },
+  { id: "light",   label: "Clean Light",     bg: "bg-white",       text: "text-slate-900",   border: "border-slate-200",       accent: "text-indigo-600",  hex: "#ffffff", hexAccent: "#4f46e5" },
+  { id: "gold",    label: "Gold Luxury",     bg: "bg-amber-950",   text: "text-amber-50",    border: "border-amber-700/40",    accent: "text-amber-400",   hex: "#451a03", hexAccent: "#f59e0b" },
+  { id: "indigo",  label: "Indigo Pro",      bg: "bg-indigo-950",  text: "text-indigo-50",   border: "border-indigo-700/40",   accent: "text-indigo-300",  hex: "#1e1b4b", hexAccent: "#818cf8" },
+  { id: "emerald", label: "Emerald Fresh",   bg: "bg-emerald-950", text: "text-emerald-50",  border: "border-emerald-700/40",  accent: "text-emerald-300", hex: "#022c22", hexAccent: "#34d399" },
+];
+
+type CardStyleDef = {
+  id: string; label: string; premium: boolean;
+};
+
+const CARD_STYLES: CardStyleDef[] = [
+  { id: "standard",  label: "Standard",       premium: false },
+  { id: "executive", label: "Executive",      premium: true },
+  { id: "luxury",    label: "Luxury",         premium: true },
+  { id: "modern",    label: "Modern",         premium: true },
+  { id: "minimal",   label: "Minimal",        premium: true },
+  { id: "fashion",   label: "Fashion Studio", premium: true },
+  { id: "elegant",   label: "Elegant",        premium: true },
+];
+
+const STYLE_SWATCHES: Record<string, { bg: string; accent: string }> = {
+  standard:  { bg: "linear-gradient(135deg,#1a1a2e 0%,#16213e 100%)", accent: "#c8a84b" },
+  executive: { bg: "linear-gradient(135deg,#0f2027 0%,#203a43 50%,#2c5364 100%)", accent: "#64b5f6" },
+  luxury:    { bg: "linear-gradient(135deg,#2d1b00 0%,#5c3800 100%)", accent: "#ffd700" },
+  modern:    { bg: "linear-gradient(135deg,#6d28d9 0%,#7c3aed 50%,#4f46e5 100%)", accent: "#a78bfa" },
+  minimal:   { bg: "linear-gradient(135deg,#f8f9fa 0%,#e9ecef 100%)", accent: "#6c757d" },
+  fashion:   { bg: "linear-gradient(135deg,#1a0a1e 0%,#3d0a4f 100%)", accent: "#e879f9" },
+  elegant:   { bg: "linear-gradient(135deg,#1c1c1c 0%,#2d2d2d 100%)", accent: "#d4af37" },
+};
+
+// Helper functions
+function isDarkColor(color: string): boolean {
+  if (!color || color === "transparent") return false;
+  let hex = color.replace("#", "");
+  if (hex.length === 3) hex = hex.split("").map(c => c + c).join("");
+  if (hex.length !== 6) return false;
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness < 128;
+}
+
+function getContrastColor(hexColor: string): string {
+  if (!hexColor || hexColor === "transparent") return "#ffffff";
+  let hex = hexColor.replace("#", "");
+  if (hex.length === 3) hex = hex.split("").map(c => c + c).join("");
+  if (hex.length !== 6) return "#ffffff";
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? "#000000" : "#ffffff";
+}
+
+function generateQuoteNumber(): string {
+  const year = new Date().getFullYear();
+  const random = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+  return `QT-${year}-${random}`;
+}
+
+export default function QuoteCardGenerator() {
+  const [, setLocation] = useLocation();
+
+  const appLogo         = useAppStore((s) => s.appLogo);
+  const appName         = useAppStore((s) => s.appName);
+  const businessProfile = useAppStore((s) => s.businessProfile);
+  const isPremium       = useAppStore((s) => s.isPremium);
+
+  const [theme, setTheme]                       = useState(THEMES[0]);
+  const [selectedCardStyle, setSelectedCardStyle] = useState<string>(() => {
+    return localStorage.getItem("lastQuoteCardStyle") || "standard";
+  });
+  const [quoteNote, setQuoteNote]               = useState("");
+  const [loading, setLoading]                   = useState(false);
+  const [sharing, setSharing]                   = useState(false);
+  const [error, setError]                       = useState("");
+  const [renderingCard, setRenderingCard]       = useState(false);
+  const [previewStyle, setPreviewStyle]         = useState<CardStyleDef | null>(null);
+
+  // Brand color states
+  const [colorMode, setColorMode] = useState<ColorMode>(() => {
+    return (localStorage.getItem("quoteColorMode") as ColorMode) || "theme";
+  });
+  const [colorCombination, setColorCombination] = useState<ColorCombination>(() => {
+    return (localStorage.getItem("quoteColorCombination") as ColorCombination) || "single";
+  });
+  const [brandBgMode, setBrandBgMode] = useState<BgMode>(() => {
+    return (localStorage.getItem("quoteBrandBgMode") as BgMode) || "auto";
+  });
+
+  const cardRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Get quote data from location state
+  const [quoteData, setQuoteData] = useState<QuoteData | null>(null);
+  const locationState = (window.history.state?.state || {}) as { quoteData?: QuoteData };
+  const quoteNumber = generateQuoteNumber();
+
+  // Get brand colors from business profile
+  const brandPrimary = businessProfile?.brandColors?.primary || businessProfile?.primaryColor || "#3b82f6";
+  const brandSecondary = businessProfile?.brandColors?.secondary || businessProfile?.secondaryColor || brandPrimary;
+  const brandAccent = businessProfile?.brandColors?.accent || businessProfile?.accentColor || brandSecondary;
+
+  const hasBrandColors = !!(businessProfile?.brandColors?.primary || businessProfile?.primaryColor);
+
+  // Create brand theme object
+  const brandTheme = useMemo(() => {
+    let bgClass = "bg-slate-900";
+    let textClass = "text-white";
+    let borderClass = "border-white/10";
+
+    if (brandBgMode === "light") {
+      bgClass = "bg-white";
+      textClass = "text-slate-900";
+      borderClass = "border-slate-200";
+    } else if (brandBgMode === "dark") {
+      bgClass = "bg-slate-900";
+      textClass = "text-white";
+      borderClass = "border-white/10";
+    } else {
+      const textColor = getContrastColor(brandPrimary);
+      const isDark = textColor === "#ffffff";
+      bgClass = isDark ? "bg-slate-900" : "bg-white";
+      textClass = isDark ? "text-white" : "text-slate-900";
+      borderClass = isDark ? "border-white/10" : "border-slate-200";
+    }
+
+    let mainAccent = brandPrimary;
+    let secondaryAccent = brandSecondary;
+    let tertiaryAccent = brandAccent;
+
+    if (colorCombination === "single") {
+      mainAccent = brandPrimary;
+      secondaryAccent = brandPrimary;
+      tertiaryAccent = brandPrimary;
+    } else if (colorCombination === "dual") {
+      mainAccent = brandPrimary;
+      secondaryAccent = brandSecondary;
+      tertiaryAccent = brandSecondary;
+    } else {
+      mainAccent = brandPrimary;
+      secondaryAccent = brandSecondary;
+      tertiaryAccent = brandAccent;
+    }
+
+    return {
+      id: "brand",
+      label: "Brand Colors",
+      bg: bgClass,
+      text: textClass,
+      border: borderClass,
+      hex: brandPrimary,
+      hexAccent: mainAccent,
+      secondaryHex: secondaryAccent,
+      accentHex: tertiaryAccent,
+      style: {
+        primary: brandPrimary,
+        secondary: brandSecondary,
+        accent: brandAccent,
+        mainAccent: mainAccent,
+        secondaryAccent: secondaryAccent,
+        tertiaryAccent: tertiaryAccent,
+      }
+    };
+  }, [brandPrimary, brandSecondary, brandAccent, colorCombination, brandBgMode]);
+
+  const activeTheme = useMemo(() => {
+    if (colorMode === "brand" && hasBrandColors) {
+      return brandTheme;
+    }
+    return theme;
+  }, [colorMode, brandTheme, theme, hasBrandColors]);
+
+  // Load quote data from location state
+  useEffect(() => {
+    if (locationState.quoteData) {
+      setQuoteData(locationState.quoteData);
+      setRenderingCard(true);
+      setTimeout(() => setRenderingCard(false), 600);
+    } else {
+      setLocation("/price-smartly");
+    }
+  }, [locationState.quoteData]);
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("lastQuoteTheme");
+    if (savedTheme) {
+      const found = THEMES.find(t => t.id === savedTheme);
+      if (found) setTheme(found);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (colorMode === "theme") {
+      localStorage.setItem("lastQuoteTheme", theme.id);
+    }
+  }, [theme, colorMode]);
+
+  useEffect(() => {
+    localStorage.setItem("lastQuoteCardStyle", selectedCardStyle);
+  }, [selectedCardStyle]);
+
+  useEffect(() => {
+    localStorage.setItem("quoteColorMode", colorMode);
+  }, [colorMode]);
+
+  useEffect(() => {
+    localStorage.setItem("quoteColorCombination", colorCombination);
+  }, [colorCombination]);
+
+  useEffect(() => {
+    localStorage.setItem("quoteBrandBgMode", brandBgMode);
+  }, [brandBgMode]);
+
+  const isBrandKitComplete = useMemo(() =>
+    !!(appLogo && businessProfile?.name && (businessProfile.phone || businessProfile?.socials?.whatsapp)),
+    [appLogo, businessProfile?.name, businessProfile?.phone, businessProfile?.socials?.whatsapp]
+  );
+
+  const socials = businessProfile?.socials;
+  const addrLandmark = businessProfile?.addressDetails?.landmark || "";
+  const addrStateCountry = [businessProfile?.addressDetails?.state, businessProfile?.addressDetails?.country].filter(Boolean).join(", ");
+
+  const formatPrice = (n: number) => {
+    const symbol = quoteData?.currencySymbol || "₦";
+    return symbol + Math.round(n).toLocaleString();
+  };
+
+  const quoteBreakdown = useMemo(() => {
+    if (!quoteData) return [];
+    return [
+      { label: "Fabric Cost", value: formatPrice(quoteData.fabricCost), highlight: false },
+      { label: "Accessories Cost", value: formatPrice(quoteData.accessoriesCost), highlight: false },
+      { label: "Labor Cost", value: formatPrice(quoteData.laborCost), highlight: false },
+      { label: "Subtotal", value: formatPrice(quoteData.subtotal), highlight: false },
+      { label: "Total Quote", value: formatPrice(quoteData.totalPrice), highlight: true },
+    ];
+  }, [quoteData]);
+
+  // Card generation
+  const generateCardBlob = useCallback(async (): Promise<Blob> => {
+    if (!cardRef.current) throw new Error("Card not ready");
+
+    const imgs = Array.from(cardRef.current.querySelectorAll("img"));
+    await Promise.all(imgs.map(img =>
+      img.complete ? Promise.resolve() : new Promise(res => { img.onload = res; img.onerror = res; })
+    ));
+    await new Promise(res => setTimeout(res, 150));
+
+    const cvs = document.createElement("canvas");
+    cvs.width = cvs.height = 1;
+    const cvCtx = cvs.getContext("2d")!;
+
+    const toRgb = (color: string): string | null => {
+      if (!color || color === "rgba(0, 0, 0, 0)" || color === "transparent") return null;
+      if (/^rgb/.test(color) || /^#/.test(color)) return color;
+      try {
+        cvCtx.clearRect(0, 0, 1, 1);
+        cvCtx.fillStyle = color;
+        cvCtx.fillRect(0, 0, 1, 1);
+        const [r, g, b, a] = cvCtx.getImageData(0, 0, 1, 1).data;
+        if (a === 0) return null;
+        return a === 255 ? `rgb(${r},${g},${b})` : `rgba(${r},${g},${b},${(a / 255).toFixed(3)})`;
+      } catch { return null; }
+    };
+
+    const COLOR_PROPS = ["color", "background-color", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color"];
+    const allEls = [cardRef.current, ...Array.from(cardRef.current.querySelectorAll<HTMLElement>("*"))];
+    const savedStyles = allEls.map(el => el.style.cssText);
+
+    allEls.forEach(el => {
+      const computed = window.getComputedStyle(el);
+      COLOR_PROPS.forEach(prop => {
+        const val = computed.getPropertyValue(prop);
+        const rgb = toRgb(val);
+        if (rgb) el.style.setProperty(prop, rgb);
+      });
+    });
+
+    try {
+      const canvas = await html2canvas(cardRef.current, {
+        scale: 2.5,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: activeTheme.hex,
+        logging: false,
+        removeContainer: true,
+        onclone: (_doc, el) => {
+          el.querySelectorAll("img").forEach(img => {
+            (img as HTMLImageElement).style.display = "block";
+          });
+        },
+      });
+
+      return new Promise((resolve, reject) => {
+        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("Failed to generate image")), "image/png", 1.0);
+      });
+    } finally {
+      allEls.forEach((el, i) => { el.style.cssText = savedStyles[i]; });
+    }
+  }, [activeTheme.hex]);
+
+  const handleDownload = useCallback(async (): Promise<Blob | null> => {
+    if (!cardRef.current) { setError("Card not ready. Please wait."); return null; }
+    setLoading(true);
+    setError("");
+    try {
+      const blob = await generateCardBlob();
+      const url = URL.createObjectURL(blob);
+      const filename = `${(quoteData?.customerName || "client").replace(/\s+/g, "-").toLowerCase()}-quote-card.png`;
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 15000);
+      return blob;
+    } catch (err) {
+      console.error("Download error:", err);
+      setError("Failed to save image. Please try Print instead.");
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [generateCardBlob, quoteData?.customerName]);
+
+  const handlePrint = useCallback(async () => {
+    if (!cardRef.current) return;
+    setLoading(true);
+    setError("");
+
+    try {
+      const blob = await generateCardBlob();
+
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      const printWin = window.open("", "_blank", "width=800,height=1000");
+      if (!printWin) {
+        setError("Pop-up blocked. Please allow pop-ups for this site.");
+        setLoading(false);
+        return;
+      }
+
+      printWin.document.write(
+`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Quote Card – ${quoteData?.customerName ?? ""}</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { background:white; display:flex; justify-content:center; padding:20px; }
+    img { max-width:100%; height:auto; display:block; }
+    @media print { body { padding:0; } img { box-shadow:none; } }
+  </style>
+</head>
+<body>
+  <img src="${dataUrl}" />
+  <script>
+    window.onload = function() {
+      var img = document.querySelector('img');
+      if (img.complete && img.naturalWidth > 0) {
+        setTimeout(function() { window.print(); setTimeout(function(){ window.close(); }, 500); }, 300);
+      } else {
+        img.onload = function() {
+          setTimeout(function() { window.print(); setTimeout(function(){ window.close(); }, 500); }, 300);
+        };
+      }
+    };
+  </script>
+</body>
+</html>`
+      );
+
+      printWin.document.close();
+    } catch (err) {
+      console.error("Print error:", err);
+      setError("Failed to prepare print. Try Save To Device instead.");
+    } finally {
+      setLoading(false);
+    }
+  }, [generateCardBlob, quoteData?.customerName]);
+
+  const handleShareToCustomer = useCallback(async () => {
+    if (!quoteData?.customerName) { setError("Customer name required"); return; }
+    setSharing(true);
+    setError("");
+
+    const businessName = businessProfile?.name || appName;
+    const message = `Hello ${quoteData.customerName} 👋\n\nHere is your quote from *${businessName}*.\n\n📄 ${quoteData.garmentName} x${quoteData.quantity}\n💰 Total: ${formatPrice(quoteData.totalPrice)}\n📅 Valid until: ${new Date(quoteData.validUntil).toLocaleDateString()}\n\nPlease confirm to proceed. ✨`;
+
+    try {
+      const blob = await generateCardBlob();
+      const file = new File([blob], "quote-card.png", { type: "image/png" });
+      const shareData = { title: `${quoteData.customerName} – Quote Card`, text: message, files: [file] };
+
+      if (navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+      } else {
+        const url = URL.createObjectURL(blob);
+        const filename = `${quoteData.customerName.replace(/\s+/g, "-").toLowerCase()}-quote-card.png`;
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        link.style.display = "none";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+        await new Promise(res => setTimeout(res, 800));
+        const waUrl = `https://wa.me/?text=${encodeURIComponent(message + "\n\n_(Image saved to your gallery — tap the 📎 icon to attach it)_")}`;
+        window.open(waUrl, "_blank");
+      }
+    } catch (err: any) {
+      if (err?.name !== "AbortError") {
+        const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+        window.open(waUrl, "_blank");
+      }
+    } finally {
+      setSharing(false);
+    }
+  }, [generateCardBlob, quoteData, businessProfile?.name, appName]);
+
+  const copyQuoteAsText = useCallback(() => {
+    if (!quoteData) return;
+    const lines: string[] = [];
+    lines.push(`${businessProfile?.name || appName}`);
+    lines.push(`Customer: ${quoteData.customerName}`);
+    lines.push(`Quote #: ${quoteNumber}`);
+    lines.push(`Garment: ${quoteData.garmentName} x${quoteData.quantity}`);
+    lines.push(`Total: ${formatPrice(quoteData.totalPrice)}`);
+    lines.push(`Valid until: ${new Date(quoteData.validUntil).toLocaleDateString()}`);
+    if (quoteNote) {
+      lines.push("");
+      lines.push(`Note: ${quoteNote}`);
+    }
+    const text = lines.join("\n");
+    navigator.clipboard.writeText(text).then(() => {
+      setError("");
+    });
+  }, [quoteData, quoteNote, businessProfile?.name, appName, quoteNumber]);
+
+  // Guard: no quote data
+  if (!quoteData) {
+    return (
+      <div className="max-w-xl mx-auto pb-24 relative min-h-screen">
+        <PageHeader title="Loading Quote..." />
+        <div className="px-4 py-20 text-center">
+          <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground text-sm">Loading quote data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-xl mx-auto pb-24 relative min-h-screen">
+      <PageHeader
+        title="Quote Card"
+        subtitle="Professional quote for your customer"
+        onBack={() => setLocation("/price-smartly")}
+      />
+
+      {error && (
+        <div className="mx-4 mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-500 text-sm flex items-center gap-2">
+          <AlertCircle size={16} className="shrink-0" />
+          {error}
+        </div>
+      )}
+
+      <div className="px-4 py-4 space-y-6">
+
+        {/* Quote Info Header */}
+        <div className="bg-card border border-border rounded-2xl p-4 space-y-3 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText size={16} className="text-primary" />
+              <h3 className="text-xs font-black uppercase tracking-wider text-muted-foreground">Quote Summary</h3>
+            </div>
+            <span className="text-[10px] font-mono font-black text-primary bg-primary/10 px-3 py-1 rounded-full">{quoteNumber}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-[10px] text-muted-foreground font-bold uppercase">Customer</p>
+              <p className="font-black">{quoteData.customerName}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground font-bold uppercase">Garment</p>
+              <p className="font-black">{quoteData.garmentName} <span className="text-muted-foreground font-normal">x{quoteData.quantity}</span></p>
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground font-bold uppercase">Complexity</p>
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 inline-block mt-0.5">{quoteData.complexity}</span>
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground font-bold uppercase">Valid Until</p>
+              <p className="font-bold text-sm flex items-center gap-1"><Calendar size={12} />{new Date(quoteData.validUntil).toLocaleDateString("en-GB", {day:"2-digit",month:"short",year:"numeric"})}</p>
+            </div>
+          </div>
+          <div className="bg-primary/5 rounded-xl p-3 flex items-center justify-between">
+            <span className="text-xs font-bold text-muted-foreground">Total Quote Amount</span>
+            <span className="text-xl font-black text-primary">{formatPrice(quoteData.totalPrice)}</span>
+          </div>
+        </div>
+
+        {/* COLOR SOURCE SELECTOR */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 px-1">
+            <Palette size={14} className="text-primary" />
+            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Color Source</label>
+          </div>
+          <div className="flex gap-2 rounded-xl bg-card border border-border p-1">
+            <button
+              onClick={() => setColorMode("theme")}
+              className={`flex-1 px-4 py-2.5 rounded-lg text-[11px] font-bold transition-all ${colorMode === "theme" ? "bg-primary text-primary-foreground shadow-lg" : "text-muted-foreground hover:bg-muted"}`}
+            >
+              Classic Themes
+            </button>
+            <button
+              onClick={() => setColorMode("brand")}
+              className={`flex-1 px-4 py-2.5 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-2 ${colorMode === "brand" ? "bg-primary text-primary-foreground shadow-lg" : "text-muted-foreground hover:bg-muted"}`}
+            >
+              <Sparkles size={12} />
+              Brand Colors
+              {!hasBrandColors && <span className="text-[8px] ml-1 opacity-70">(Not set)</span>}
+            </button>
+          </div>
+        </div>
+
+        {/* THEME SELECTOR */}
+        {colorMode === "theme" && (
+          <div className="space-y-3 animate-in fade-in duration-200">
+            <div className="flex items-center gap-2 px-1">
+              <Palette size={14} className="text-primary" />
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Choose Theme</label>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+              {THEMES.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setTheme(t)}
+                  className={`shrink-0 px-4 py-2.5 rounded-xl border text-[10px] font-bold transition-all ${theme.id === t.id ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20" : "bg-card border-border text-muted-foreground"}`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* BRAND COLOR CONTROLS */}
+        {colorMode === "brand" && hasBrandColors && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 px-1">
+                <div className="flex gap-1">
+                  <div className="w-4 h-4 rounded-full" style={{ backgroundColor: brandPrimary }} />
+                  <div className="w-4 h-4 rounded-full" style={{ backgroundColor: brandSecondary }} />
+                  <div className="w-4 h-4 rounded-full" style={{ backgroundColor: brandAccent }} />
+                </div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Your Brand Colors</label>
+              </div>
+
+              {/* Card Background Mode */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <label className="text-[9px] font-bold text-muted-foreground flex items-center gap-1">
+                    <Sun size={10} /> <Moon size={10} /> Card Background
+                  </label>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setBrandBgMode("auto")}
+                    className={`flex-1 py-2 rounded-lg text-[10px] font-bold transition-all border ${brandBgMode === "auto" ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"}`}
+                  >Auto</button>
+                  <button
+                    onClick={() => setBrandBgMode("light")}
+                    className={`flex-1 py-2 rounded-lg text-[10px] font-bold transition-all border ${brandBgMode === "light" ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"}`}
+                  >Light</button>
+                  <button
+                    onClick={() => setBrandBgMode("dark")}
+                    className={`flex-1 py-2 rounded-lg text-[10px] font-bold transition-all border ${brandBgMode === "dark" ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"}`}
+                  >Dark</button>
+                </div>
+                <p className="text-[8px] text-muted-foreground ml-1">Switch background to improve contrast with your brand colors</p>
+              </div>
+
+              {/* Color Combination */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <label className="text-[9px] font-bold text-muted-foreground">Color Combination</label>
+                  {!isPremium && (
+                    <span className="text-[8px] font-black px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center gap-1">
+                      <Lock size={8} /> PRO
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => isPremium && setColorCombination("single")}
+                    disabled={!isPremium}
+                    className={`flex-1 py-2 rounded-lg text-[10px] font-bold transition-all border ${colorCombination === "single" && isPremium ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"} ${!isPremium && "opacity-50 cursor-not-allowed"}`}
+                  >1 Color</button>
+                  <button
+                    onClick={() => isPremium && setColorCombination("dual")}
+                    disabled={!isPremium}
+                    className={`flex-1 py-2 rounded-lg text-[10px] font-bold transition-all border ${colorCombination === "dual" && isPremium ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"} ${!isPremium && "opacity-50 cursor-not-allowed"}`}
+                  >2 Colors</button>
+                  <button
+                    onClick={() => isPremium && setColorCombination("triple")}
+                    disabled={!isPremium}
+                    className={`flex-1 py-2 rounded-lg text-[10px] font-bold transition-all border ${colorCombination === "triple" && isPremium ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"} ${!isPremium && "opacity-50 cursor-not-allowed"}`}
+                  >3 Colors</button>
+                </div>
+                <p className="text-[8px] text-muted-foreground ml-1">1=Primary only, 2=Primary+Secondary, 3=All three colors</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Warning for missing brand colors */}
+        {colorMode === "brand" && !hasBrandColors && (
+          <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-600 dark:text-amber-400 text-xs flex items-center gap-2">
+            <AlertCircle size={14} />
+            No brand colors set. Please configure colors in Brand Kit or switch to Classic Themes.
+            <button onClick={() => setLocation("/brand-kit")} className="ml-auto text-xs font-bold underline">Go to Brand Kit</button>
+          </div>
+        )}
+
+        {/* CARD STYLE SELECTOR */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 px-1">
+            <Wand2 size={14} className="text-primary" />
+            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Card Style</label>
+            {!isPremium && (
+              <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">PRO</span>
+            )}
+          </div>
+          <div className="flex flex-nowrap gap-2.5 overflow-x-auto pb-2 no-scrollbar">
+            {CARD_STYLES.map(s => {
+              const locked = s.premium && !isPremium;
+              const swatch = STYLE_SWATCHES[s.id] || STYLE_SWATCHES.standard;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => locked ? setPreviewStyle(s) : setSelectedCardStyle(s.id)}
+                  title={locked ? "Tap to preview this style" : s.label}
+                  className={`shrink-0 relative flex flex-col items-center gap-1.5 p-2 rounded-2xl border transition-all ${selectedCardStyle === s.id ? "border-primary shadow-lg shadow-primary/20 ring-2 ring-primary/40" : "border-border"} ${locked ? "opacity-70" : "hover:border-primary/50"}`}
+                  style={{ minWidth: 68 }}
+                >
+                  <div className="w-14 h-10 rounded-xl overflow-hidden relative" style={{ background: swatch.bg }}>
+                    <div className="absolute inset-0 flex flex-col justify-between p-1.5">
+                      <div className="flex gap-0.5">
+                        <div className="h-1 w-4 rounded-full opacity-80" style={{ background: swatch.accent }} />
+                        <div className="h-1 w-3 rounded-full opacity-40" style={{ background: swatch.accent }} />
+                      </div>
+                      <div className="space-y-0.5">
+                        <div className="h-0.5 w-full rounded-full opacity-30" style={{ background: swatch.accent }} />
+                        <div className="h-0.5 w-3/4 rounded-full opacity-20" style={{ background: swatch.accent }} />
+                      </div>
+                    </div>
+                    {locked && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-xl">
+                        <Lock size={10} className="text-white/80" />
+                      </div>
+                    )}
+                  </div>
+                  <span className={`text-[9px] font-black text-center leading-tight ${selectedCardStyle === s.id ? "text-primary" : "text-muted-foreground"}`}>
+                    {s.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Preview modal for locked styles */}
+        {previewStyle && (() => {
+          const sw = STYLE_SWATCHES[previewStyle.id] || STYLE_SWATCHES.standard;
+          const isDark = previewStyle.id !== "minimal";
+          return (
+            <div
+              onMouseLeave={() => setPreviewStyle(null)}
+              className="fixed inset-0 z-50 flex items-center justify-center"
+              style={{ userSelect: "none", WebkitUserSelect: "none" }}
+            >
+              <div className="absolute inset-0 bg-black/60" onClick={() => setPreviewStyle(null)} />
+              <div className="relative w-full max-w-sm mx-4 animate-in zoom-in duration-200">
+                <div className="rounded-2xl overflow-hidden shadow-2xl" style={{ background: sw.bg, color: isDark ? "#fff" : "#0f172a" }}>
+                  <div className="flex items-center justify-between px-5 pt-4 pb-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest" style={{ opacity: 0.5 }}>{previewStyle.label}</span>
+                    <Lock size={11} style={{ opacity: 0.4 }} />
+                  </div>
+                  {previewStyle.id === "executive" && <div style={{ height: 3, background: sw.accent }} />}
+                  <div className="px-5 pt-3 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full shrink-0" style={{ background: `${sw.accent}30`, border: `1px solid ${sw.accent}50` }} />
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-black truncate" style={{ color: isDark ? "#fff" : "#0f172a" }}>{businessProfile?.name || appName || "Your Brand"}</h3>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="px-5 py-2.5 border-t border-white/10">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-center" style={{ opacity: 0.6 }}>{quoteData.garmentName} — {quoteData.complexity}</p>
+                  </div>
+                  <div className="px-5 py-3 flex justify-between items-center">
+                    <div>
+                      <p className="text-[7px] font-black uppercase tracking-widest" style={{ opacity: 0.4 }}>Customer</p>
+                      <p className="text-sm font-black">{quoteData.customerName}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[7px] font-black uppercase tracking-widest" style={{ opacity: 0.4 }}>Quote #</p>
+                      <p className="text-[10px] font-mono font-black" style={{ color: sw.accent }}>{quoteNumber}</p>
+                    </div>
+                  </div>
+                  <div className="px-5 pb-4 space-y-2.5">
+                    {quoteBreakdown.map((item) => (
+                      <div key={item.label} className="flex justify-between items-baseline border-b pb-1.5" style={{ borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)" }}>
+                        <span className="text-[9px] font-bold uppercase tracking-tight" style={{ opacity: 0.5 }}>{item.label}</span>
+                        <span className="text-sm font-black" style={item.highlight ? { color: sw.accent } : {}}>{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="px-5 py-3 border-t border-white/10 text-center">
+                    <p className="text-[8px] italic" style={{ opacity: 0.5 }}>Valid until {new Date(quoteData.validUntil).toLocaleDateString()}</p>
+                  </div>
+                </div>
+                <p className="text-[10px] text-center mt-3 text-white/70">
+                  <strong className="text-white">Premium</strong> style — upgrade to unlock
+                </p>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* PREVIEW CARD */}
+        <div className="p-1 bg-slate-200 dark:bg-slate-800 rounded-[2rem] overflow-hidden shadow-2xl">
+          {renderingCard ? (
+            <div className={`w-full ${activeTheme.bg} ${activeTheme.text} p-12 flex items-center justify-center`}>
+              <div className="text-center">
+                <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-xs opacity-50">Preparing card…</p>
+              </div>
+            </div>
+          ) : (
+            <div ref={cardRef} className={`w-full ${activeTheme.bg} ${activeTheme.text} overflow-hidden`}>
+
+              {/* STANDARD STYLE */}
+              {selectedCardStyle === "standard" && (
+                <div className="p-8 space-y-8 relative">
+                  <div className={`pb-5 border-b ${activeTheme.border}`}>
+                    <div className="grid grid-cols-[auto_1fr_auto] gap-4 items-start">
+                      <div className={`w-16 h-16 rounded-full overflow-hidden border-2 ${activeTheme.border} bg-white shrink-0 shadow-sm`}>
+                        {appLogo && <img src={appLogo} className="w-full h-full object-cover" alt="Logo" crossOrigin="anonymous" />}
+                      </div>
+                      <div className="min-w-0 space-y-1">
+                        <h2 className="text-lg font-black uppercase tracking-tight leading-tight truncate" style={colorMode === "brand" ? { color: activeTheme.style?.mainAccent } : {}}>{businessProfile?.name || appName}</h2>
+                        {businessProfile?.tagline && <p className="text-[9px] font-bold opacity-60 italic leading-tight truncate">{businessProfile.tagline}</p>}
+                        {(businessProfile?.phone || socials?.whatsapp || businessProfile?.email) && (
+                          <div className="flex items-center gap-3 flex-wrap">
+                            {businessProfile?.phone && <span className="text-[10px] font-bold opacity-70 flex items-center gap-1"><Phone size={10} className="opacity-60 shrink-0" />{businessProfile.phone}</span>}
+                            {socials?.whatsapp && <span className="text-[10px] font-bold opacity-70 flex items-center gap-1"><MessageCircle size={10} className="opacity-60 shrink-0" />{socials.whatsapp}</span>}
+                            {businessProfile?.email && <span className="text-[10px] font-bold opacity-70 flex items-center gap-1"><Mail size={10} className="opacity-60 shrink-0" />{businessProfile.email}</span>}
+                          </div>
+                        )}
+                        {addrLandmark && <p className="text-[10px] font-bold opacity-70 flex items-center gap-1"><MapPin size={10} className="opacity-50 shrink-0" />{addrLandmark}{addrStateCountry ? `, ${addrStateCountry}` : ""}</p>}
+                        {!addrLandmark && addrStateCountry && <p className="text-[10px] font-bold opacity-60">{addrStateCountry}</p>}
+                        {!addrLandmark && !addrStateCountry && businessProfile?.address && <p className="text-[10px] font-bold opacity-70 flex items-start gap-1"><MapPin size={10} className="opacity-50 shrink-0 mt-0.5" /><span className="leading-tight">{businessProfile.address}</span></p>}
+                        {(socials?.instagram || socials?.facebook || socials?.youtube || socials?.tiktok) && (
+                          <div className="flex flex-wrap gap-1 pt-0.5">
+                            {socials?.instagram && <span style={{background:"rgba(255,255,255,0.15)",borderRadius:999,padding:"2px 6px",display:"inline-flex",alignItems:"center",gap:3}}><Instagram size={8} style={{opacity:0.9}} /><span style={{fontSize:8,fontWeight:700,opacity:0.9,lineHeight:1}}>@{socials.instagram}</span></span>}
+                            {socials?.facebook && <span style={{background:"rgba(255,255,255,0.15)",borderRadius:999,padding:"2px 6px",display:"inline-flex",alignItems:"center",gap:3}}><Facebook size={8} style={{opacity:0.9}} /><span style={{fontSize:8,fontWeight:700,opacity:0.9,lineHeight:1}}>{socials.facebook}</span></span>}
+                            {socials?.tiktok && <span style={{background:"rgba(255,255,255,0.15)",borderRadius:999,padding:"2px 6px",display:"inline-flex",alignItems:"center",gap:3}}><Users size={8} style={{opacity:0.9}} /><span style={{fontSize:8,fontWeight:700,opacity:0.9,lineHeight:1}}>@{socials.tiktok}</span></span>}
+                            {socials?.youtube && <span style={{background:"rgba(255,255,255,0.15)",borderRadius:999,padding:"2px 6px",display:"inline-flex",alignItems:"center",gap:3}}><Youtube size={8} style={{opacity:0.9}} /><span style={{fontSize:8,fontWeight:700,opacity:0.9,lineHeight:1}}>{socials.youtube}</span></span>}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-[8px] opacity-40 uppercase font-black tracking-widest">Quote #</p>
+                        <p className="text-[13px] font-mono font-black mt-0.5" style={colorMode === "brand" ? { color: activeTheme.style?.mainAccent } : {}}>{quoteNumber}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className={`py-3 border-b ${activeTheme.border}`}>
+                    <p className="text-[11px] font-black uppercase tracking-[0.2em] text-center opacity-80">{quoteData.complexity} — {quoteData.garmentName} x{quoteData.quantity}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-8">
+                    <div className="space-y-0.5">
+                      <p className="text-[8px] opacity-40 uppercase font-black tracking-widest">Customer</p>
+                      <h4 className="text-base font-black leading-none">{quoteData.customerName}</h4>
+                      <p className="text-[11px] font-bold opacity-60">{quoteData.quantity} x {quoteData.garmentName}</p>
+                    </div>
+                    <div className="text-right space-y-0.5">
+                      <p className="text-[8px] opacity-40 uppercase font-black tracking-widest">Date Generated</p>
+                      <p className="text-[11px] font-bold">{new Date(quoteData.date || Date.now()).toLocaleDateString("en-GB", {day:"2-digit",month:"short",year:"numeric"})}</p>
+                      <p className="text-[8px] opacity-40 uppercase font-black tracking-widest mt-2">Valid Until</p>
+                      <p className="text-[10px] font-semibold flex items-center gap-1 justify-end"><Calendar size={10} />{new Date(quoteData.validUntil).toLocaleDateString("en-GB", {day:"2-digit",month:"short",year:"numeric"})}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-12 gap-y-3 py-2">
+                    {quoteBreakdown.map((item) => (
+                      <div key={item.label} className={`flex justify-between items-baseline border-b ${activeTheme.border} pb-1.5 ${item.highlight ? "col-span-2" : ""}`}>
+                        <span className={`text-[10px] font-bold uppercase tracking-tight ${item.highlight ? "text-base" : "opacity-50"}`}>{item.label}</span>
+                        <span className={`${item.highlight ? "text-lg" : "text-base"} font-black`} style={item.highlight && colorMode === "brand" ? { color: activeTheme.style?.mainAccent } : item.highlight ? { color: activeTheme.hexAccent } : {}}>{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className={`pt-6 border-t ${activeTheme.border} text-center space-y-3`}>
+                    <p className="text-[10px] font-semibold leading-relaxed italic opacity-80 px-4">{quoteNote || DEFAULT_QUOTE_NOTE}</p>
+                    <div className="flex flex-col items-center gap-1 pt-2">
+                      <p className="text-[8px] font-black uppercase tracking-[0.4em] opacity-30">Generated By {businessProfile?.name || appName}</p>
+                      <p className="text-[7px] font-bold opacity-20 uppercase">{new Date().toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* EXECUTIVE STYLE */}
+              {selectedCardStyle === "executive" && (
+                <div>
+                  <div style={{height:4, background: colorMode === "brand" ? activeTheme.style?.mainAccent : activeTheme.hexAccent}} />
+                  <div className="px-8 pt-5 pb-4">
+                    <div className="flex items-center gap-4">
+                      {appLogo && (
+                        <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0" style={{border:`1px solid ${colorMode === "brand" ? activeTheme.style?.mainAccent : activeTheme.hexAccent}40`}}>
+                          <img src={appLogo} className="w-full h-full object-cover" alt="Logo" crossOrigin="anonymous" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h2 className="text-xl font-black uppercase tracking-widest leading-tight" style={colorMode === "brand" ? { color: activeTheme.style?.mainAccent } : {}}>{businessProfile?.name || appName}</h2>
+                        {businessProfile?.tagline && <p className="text-[9px] uppercase tracking-[0.2em] mt-0.5" style={{ opacity: 0.4 }}>{businessProfile.tagline}</p>}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-[7px] uppercase font-black tracking-widest" style={{ opacity: 0.3 }}>Quote #</p>
+                        <p className="text-sm font-mono font-black mt-0.5" style={colorMode === "brand" ? { color: activeTheme.style?.secondaryAccent } : { color: activeTheme.hexAccent }}>{quoteNumber}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2 mt-3">
+                      <div className="flex items-center gap-4 flex-wrap pt-3" style={{borderTop:"1px solid rgba(255,255,255,0.08)"}}>
+                        {businessProfile?.phone && <span className="text-[10px] font-bold opacity-60 flex items-center gap-1"><Phone size={9} />{businessProfile.phone}</span>}
+                        {socials?.whatsapp && <span className="text-[10px] font-bold opacity-60 flex items-center gap-1"><MessageCircle size={9} />{socials.whatsapp}</span>}
+                        {businessProfile?.email && <span className="text-[10px] font-bold opacity-60 flex items-center gap-1"><Mail size={9} />{businessProfile.email}</span>}
+                        {addrLandmark && <span className="text-[10px] font-bold opacity-60 flex items-center gap-1"><MapPin size={9} />{addrLandmark}{addrStateCountry ? `, ${addrStateCountry}` : ""}</span>}
+                        {!addrLandmark && addrStateCountry && <span className="text-[10px] font-bold opacity-40">{addrStateCountry}</span>}
+                        {!addrLandmark && !addrStateCountry && businessProfile?.address && <span className="text-[10px] font-bold opacity-60 flex items-center gap-1"><MapPin size={9} />{businessProfile.address}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="px-8 py-2.5" style={{background:"rgba(255,255,255,0.04)", borderTop:"1px solid rgba(255,255,255,0.06)", borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
+                    <div className="flex justify-between items-center">
+                      <p className="text-[9px] font-black uppercase tracking-[0.3em]" style={{ opacity: 0.4 }}>{quoteData.complexity} / {quoteData.garmentName} x{quoteData.quantity}</p>
+                      <p className="text-[9px] font-bold" style={{ opacity: 0.3 }}>{new Date(quoteData.date || Date.now()).toLocaleDateString("en-GB", {day:"2-digit",month:"short",year:"numeric"})}</p>
+                    </div>
+                  </div>
+                  <div className="px-8 py-3 flex justify-between items-center">
+                    <div>
+                      <p className="text-[7px] uppercase font-black tracking-widest" style={{ opacity: 0.3 }}>Customer</p>
+                      <h4 className="text-sm font-black">{quoteData.customerName}</h4>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[7px] uppercase font-black tracking-widest" style={{ opacity: 0.3 }}>Valid Until</p>
+                      <p className="text-[10px] font-bold flex items-center gap-1 justify-end" style={{ opacity: 0.5 }}><Calendar size={9} />{new Date(quoteData.validUntil).toLocaleDateString("en-GB", {day:"2-digit",month:"short",year:"numeric"})}</p>
+                    </div>
+                  </div>
+                  <div className="px-8 pb-5">
+                    {quoteBreakdown.map((item) => (
+                      <div key={item.label} className={`flex justify-between items-center py-2.5 ${item.highlight ? "bg-white/5 -mx-8 px-8 rounded-none" : ""}`} style={{borderBottom:"1px solid rgba(255,255,255,0.07)"}}>
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${item.highlight ? "text-base" : ""}`} style={{ opacity: item.highlight ? 1 : 0.4 }}>{item.label}</span>
+                        <span className={`${item.highlight ? "text-xl" : "text-base"} font-black font-mono`} style={colorMode === "brand" ? { color: activeTheme.style?.mainAccent } : { color: activeTheme.hexAccent }}>{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="px-8 py-4" style={{borderTop: `2px solid ${colorMode === "brand" ? activeTheme.style?.mainAccent + '22' : activeTheme.hexAccent + '22'}`}}>
+                    <p className="text-[9px] italic leading-relaxed" style={{ opacity: 0.4 }}>{quoteNote || DEFAULT_QUOTE_NOTE}</p>
+                    <p className="text-[7px] uppercase tracking-widest mt-2" style={{ opacity: 0.15 }}>{businessProfile?.name || appName} · {new Date().toLocaleDateString()}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* LUXURY STYLE */}
+              {selectedCardStyle === "luxury" && (
+                <div className="p-8">
+                  <div className="flex flex-col items-center pb-5 space-y-3">
+                    {appLogo && (
+                      <div className="w-20 h-20 rounded-full overflow-hidden" style={{border: `2px solid ${colorMode === "brand" ? activeTheme.style?.tertiaryAccent + '60' : activeTheme.hexAccent + '60'}`}}>
+                        <img src={appLogo} className="w-full h-full object-cover" alt="Logo" crossOrigin="anonymous" />
+                      </div>
+                    )}
+                    <div className="text-center space-y-1.5">
+                      <h2 className="text-xl font-black uppercase tracking-[0.15em]" style={colorMode === "brand" ? { color: activeTheme.style?.mainAccent } : {}}>{businessProfile?.name || appName}</h2>
+                      {businessProfile?.tagline && <p className="text-[10px] italic tracking-wide" style={{ opacity: 0.5 }}>{businessProfile.tagline}</p>}
+                    </div>
+                    <div className="flex items-center gap-3 w-full">
+                      <div className="flex-1 h-px" style={{background: `${colorMode === "brand" ? activeTheme.style?.mainAccent : activeTheme.hexAccent}40`}} />
+                      <div className="w-1.5 h-1.5 rotate-45" style={{background: colorMode === "brand" ? activeTheme.style?.tertiaryAccent : activeTheme.hexAccent}} />
+                      <div className="flex-1 h-px" style={{background: `${colorMode === "brand" ? activeTheme.style?.mainAccent : activeTheme.hexAccent}40`}} />
+                    </div>
+                    <div className="flex flex-col items-center gap-1 mt-2">
+                      {(businessProfile?.phone || socials?.whatsapp || businessProfile?.email) && (
+                        <div className="flex items-center gap-4 justify-center flex-wrap">
+                          {businessProfile?.phone && <span className="text-[10px] opacity-55 flex items-center gap-1"><Phone size={9} />{businessProfile.phone}</span>}
+                          {socials?.whatsapp && <span className="text-[10px] opacity-55 flex items-center gap-1"><MessageCircle size={9} />{socials.whatsapp}</span>}
+                          {businessProfile?.email && <span className="text-[10px] opacity-55 flex items-center gap-1"><Mail size={9} />{businessProfile.email}</span>}
+                        </div>
+                      )}
+                      {addrLandmark && <p className="text-[10px] opacity-45 flex items-center gap-1"><MapPin size={9} />{addrLandmark}{addrStateCountry ? `, ${addrStateCountry}` : ""}</p>}
+                      {!addrLandmark && addrStateCountry && <p className="text-[10px] opacity-35">{addrStateCountry}</p>}
+                      {!addrLandmark && !addrStateCountry && businessProfile?.address && <p className="text-[10px] opacity-45 flex items-center gap-1"><MapPin size={9} />{businessProfile.address}</p>}
+                    </div>
+                  </div>
+                  <div className="text-center py-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ opacity: 0.4 }}>{quoteData.complexity}</p>
+                    <p className="text-sm font-black uppercase tracking-[0.15em] mt-0.5" style={colorMode === "brand" ? { color: activeTheme.style?.mainAccent } : {}}>{quoteData.garmentName} × {quoteData.quantity}</p>
+                  </div>
+                  <div className="flex justify-between py-3 mb-3" style={{borderTop: `1px solid ${colorMode === "brand" ? activeTheme.style?.mainAccent + '25' : activeTheme.hexAccent + '25'}`, borderBottom: `1px solid ${colorMode === "brand" ? activeTheme.style?.mainAccent + '25' : activeTheme.hexAccent + '25'}`}}>
+                    <div>
+                      <p className="text-[7px] uppercase tracking-widest" style={{ opacity: 0.3 }}>Customer</p>
+                      <p className="text-sm font-black">{quoteData.customerName}</p>
+                      <p className="text-[9px] font-mono" style={{ opacity: 0.35 }}>{quoteNumber}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[7px] uppercase tracking-widest" style={{ opacity: 0.3 }}>Valid Until</p>
+                      <p className="text-[11px] font-bold">{new Date(quoteData.validUntil).toLocaleDateString("en-GB", {day:"2-digit",month:"short",year:"numeric"})}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-10 gap-y-5 py-4">
+                    {quoteBreakdown.map((item) => (
+                      <div key={item.label} className={`space-y-0.5 ${item.highlight ? "col-span-2" : ""}`}>
+                        <p className="text-[8px] font-black uppercase tracking-widest" style={{ opacity: 0.28 }}>{item.label}</p>
+                        <p className={`${item.highlight ? "text-2xl" : "text-xl"} font-black`} style={colorMode === "brand" ? { color: activeTheme.style?.tertiaryAccent } : { color: activeTheme.hexAccent }}>{item.value}</p>
+                        <div className="h-px w-full" style={{background: `${colorMode === "brand" ? activeTheme.style?.mainAccent : activeTheme.hexAccent}20`}} />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="pt-5 flex flex-col items-center gap-3">
+                    <div className="flex items-center gap-3 w-full">
+                      <div className="flex-1 h-px" style={{background: `${colorMode === "brand" ? activeTheme.style?.mainAccent : activeTheme.hexAccent}25`}} />
+                      <div className="w-1.5 h-1.5 rotate-45" style={{background: `${colorMode === "brand" ? activeTheme.style?.tertiaryAccent : activeTheme.hexAccent}55`}} />
+                      <div className="flex-1 h-px" style={{background: `${colorMode === "brand" ? activeTheme.style?.mainAccent : activeTheme.hexAccent}25`}} />
+                    </div>
+                    <p className="text-[9px] italic text-center px-6" style={{ opacity: 0.35 }}>{quoteNote || DEFAULT_QUOTE_NOTE}</p>
+                    <p className="text-[7px] uppercase tracking-[0.3em]" style={{ opacity: 0.18 }}>{businessProfile?.name || appName}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* MODERN STYLE */}
+              {selectedCardStyle === "modern" && (
+                <div>
+                  <div className="px-8 pt-6 pb-4">
+                    <div className="flex items-start gap-3">
+                      {appLogo && (
+                        <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 mt-1" style={{border: `1px solid ${colorMode === "brand" ? activeTheme.style?.mainAccent + '30' : activeTheme.hexAccent + '30'}`}}>
+                          <img src={appLogo} className="w-full h-full object-cover" alt="Logo" crossOrigin="anonymous" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h2 className="text-2xl font-black uppercase leading-none" style={colorMode === "brand" ? { color: activeTheme.style?.mainAccent } : {}}>{businessProfile?.name || appName}</h2>
+                        {businessProfile?.tagline && <p className="text-[10px] mt-1 uppercase tracking-widest" style={{ opacity: 0.35 }}>{businessProfile.tagline}</p>}
+                        <div className="flex items-center gap-3 mt-2 flex-wrap">
+                          {businessProfile?.phone && <span className="text-[10px] opacity-45 flex items-center gap-1"><Phone size={9} />{businessProfile.phone}</span>}
+                          {socials?.whatsapp && <span className="text-[10px] opacity-45 flex items-center gap-1"><MessageCircle size={9} />{socials.whatsapp}</span>}
+                          {businessProfile?.email && <span className="text-[10px] opacity-45 flex items-center gap-1"><Mail size={9} />{businessProfile.email}</span>}
+                        </div>
+                        {addrLandmark && <p className="text-[10px] opacity-40 flex items-center gap-1 mt-1"><MapPin size={9} />{addrLandmark}{addrStateCountry ? `, ${addrStateCountry}` : ""}</p>}
+                        {!addrLandmark && addrStateCountry && <p className="text-[10px] opacity-30 mt-0.5">{addrStateCountry}</p>}
+                        {!addrLandmark && !addrStateCountry && businessProfile?.address && <p className="text-[10px] opacity-40 flex items-center gap-1 mt-1"><MapPin size={9} />{businessProfile.address}</p>}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{height:2, background: `linear-gradient(90deg, ${colorMode === "brand" ? activeTheme.style?.mainAccent : activeTheme.hexAccent}, transparent)`}} />
+                  <div className="px-8 py-3 flex justify-between items-center" style={{background:"rgba(255,255,255,0.04)"}}>
+                    <div>
+                      <p className="text-base font-black">{quoteData.customerName}</p>
+                      <p className="text-[9px] uppercase tracking-widest" style={{ opacity: 0.35 }}>{quoteData.complexity} · {quoteData.garmentName} x{quoteData.quantity}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[7px] uppercase tracking-widest" style={{ opacity: 0.25 }}>Quote #</p>
+                      <p className="text-[10px] font-mono font-bold" style={{ opacity: 0.5 }}>{quoteNumber}</p>
+                    </div>
+                  </div>
+                  <div className="px-8 py-5 grid grid-cols-2 gap-x-8 gap-y-5">
+                    {quoteBreakdown.map((item) => (
+                      <div key={item.label} className={item.highlight ? "col-span-2" : ""}>
+                        <p className="text-[8px] font-black uppercase tracking-widest" style={{ opacity: 0.28 }}>{item.label}</p>
+                        <p className={`${item.highlight ? "text-4xl" : "text-3xl"} font-black leading-none mt-0.5`} style={colorMode === "brand" ? { color: activeTheme.style?.mainAccent } : {}}>{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="px-8 py-4" style={{borderTop:"1px solid rgba(255,255,255,0.07)"}}>
+                    <p className="text-[9px] italic" style={{ opacity: 0.3 }}>{quoteNote || DEFAULT_QUOTE_NOTE}</p>
+                    <div className="flex items-center justify-between mt-2">
+                      <p className="text-[7px] uppercase tracking-widest" style={{ opacity: 0.18 }}>{businessProfile?.name || appName}</p>
+                      <p className="text-[7px] font-mono" style={{ opacity: 0.15 }}>{quoteNumber}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* MINIMAL STYLE */}
+              {selectedCardStyle === "minimal" && (
+                <div className="p-12">
+                  <div className="pb-8">
+                    <h2 className="text-2xl font-black uppercase tracking-[0.12em] leading-tight" style={colorMode === "brand" ? { color: activeTheme.style?.mainAccent } : {}}>{businessProfile?.name || appName}</h2>
+                    {businessProfile?.tagline && <p className="text-[10px] italic mt-1" style={{ opacity: 0.35 }}>{businessProfile.tagline}</p>}
+                    <div className="flex items-center gap-5 mt-3 flex-wrap">
+                      {businessProfile?.phone && <span className="text-[10px] opacity-35">{businessProfile.phone}</span>}
+                      {socials?.whatsapp && <span className="text-[10px] opacity-35">{socials.whatsapp}</span>}
+                      {businessProfile?.email && <span className="text-[10px] opacity-35">{businessProfile.email}</span>}
+                      {addrLandmark && <span className="text-[10px] opacity-35">{addrLandmark}{addrStateCountry ? `, ${addrStateCountry}` : ""}</span>}
+                      {!addrLandmark && addrStateCountry && <span className="text-[10px] opacity-25">{addrStateCountry}</span>}
+                      {!addrLandmark && !addrStateCountry && businessProfile?.address && <span className="text-[10px] opacity-35">{businessProfile.address}</span>}
+                    </div>
+                  </div>
+                  <div className="h-px w-full" style={{background:"currentColor", opacity:0.12}} />
+                  <div className="py-5">
+                    <p className="text-[9px] uppercase tracking-[0.3em]" style={{ opacity: 0.25 }}>{quoteData.complexity}</p>
+                    <p className="text-sm font-black uppercase tracking-widest mt-1" style={colorMode === "brand" ? { color: activeTheme.style?.mainAccent } : {}}>{quoteData.garmentName} × {quoteData.quantity}</p>
+                  </div>
+                  <div className="flex justify-between text-[10px] pb-6" style={{ opacity: 0.35 }}>
+                    <span>{quoteData.customerName}</span>
+                    <span>{quoteNumber}</span>
+                  </div>
+                  <div className="space-y-5">
+                    {quoteBreakdown.map((item) => (
+                      <div key={item.label} className="flex justify-between items-baseline">
+                        <span className="text-[10px] uppercase tracking-[0.15em]" style={{ opacity: 0.35 }}>{item.label}</span>
+                        <span className={`${item.highlight ? "text-2xl" : "text-lg"} font-black`} style={colorMode === "brand" ? { color: activeTheme.style?.mainAccent } : {}}>{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-10" style={{borderTop:"1px solid currentColor", opacity:0.08}} />
+                  <p className="text-[8px] mt-3 italic" style={{ opacity: 0.18 }}>{quoteNote || DEFAULT_QUOTE_NOTE}</p>
+                  <div className="flex justify-between mt-2">
+                    <p className="text-[7px] uppercase tracking-widest" style={{ opacity: 0.1 }}>{businessProfile?.name || appName}</p>
+                    <p className="text-[7px]" style={{ opacity: 0.1 }}>Valid: {new Date(quoteData.validUntil).toLocaleDateString()}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* FASHION STYLE */}
+              {selectedCardStyle === "fashion" && (
+                <div>
+                  <div className="flex flex-col items-center pt-8 pb-5 px-8" style={{borderBottom: `1px solid ${colorMode === "brand" ? activeTheme.style?.mainAccent + '28' : activeTheme.hexAccent + '28'}`}}>
+                    {appLogo && (
+                      <div className="w-24 h-24 rounded-2xl overflow-hidden mb-4" style={{boxShadow: `0 0 0 1px ${colorMode === "brand" ? activeTheme.style?.mainAccent + '40' : activeTheme.hexAccent + '40'}`}}>
+                        <img src={appLogo} className="w-full h-full object-cover" alt="Logo" crossOrigin="anonymous" />
+                      </div>
+                    )}
+                    <h2 className="text-lg font-black uppercase tracking-[0.25em] text-center" style={colorMode === "brand" ? { color: activeTheme.style?.mainAccent } : {}}>{businessProfile?.name || appName}</h2>
+                    {businessProfile?.tagline && <p className="text-[9px] italic mt-1 text-center" style={{ opacity: 0.45 }}>{businessProfile.tagline}</p>}
+                    <div className="flex items-center gap-3 mt-2 justify-center flex-wrap">
+                      {businessProfile?.phone && <span className="text-[9px] opacity-45">{businessProfile.phone}</span>}
+                      {socials?.whatsapp && <span className="text-[9px] opacity-45">{socials.whatsapp}</span>}
+                      {businessProfile?.email && <span className="text-[9px] opacity-45">{businessProfile.email}</span>}
+                    </div>
+                    {addrLandmark && <p className="text-[9px] opacity-38 mt-1 text-center">{addrLandmark}{addrStateCountry ? `, ${addrStateCountry}` : ""}</p>}
+                    {!addrLandmark && addrStateCountry && <p className="text-[9px] opacity-28 text-center">{addrStateCountry}</p>}
+                    {!addrLandmark && !addrStateCountry && businessProfile?.address && <p className="text-[9px] opacity-38 mt-1 text-center">{businessProfile.address}</p>}
+                  </div>
+                  <div className="px-8 py-3 flex items-center gap-3" style={{borderBottom: `1px solid ${colorMode === "brand" ? activeTheme.style?.mainAccent + '18' : activeTheme.hexAccent + '18'}`}}>
+                    <div className="w-0.5 h-6 flex-shrink-0" style={{background: colorMode === "brand" ? activeTheme.style?.tertiaryAccent : activeTheme.hexAccent}} />
+                    <div>
+                      <p className="text-[8px] uppercase tracking-widest" style={{ opacity: 0.3 }}>{quoteData.complexity}</p>
+                      <p className="text-sm font-black uppercase" style={colorMode === "brand" ? { color: activeTheme.style?.mainAccent } : {}}>{quoteData.garmentName} × {quoteData.quantity}</p>
+                    </div>
+                    <div className="ml-auto text-right">
+                      <p className="text-[7px] uppercase tracking-widest" style={{ opacity: 0.28 }}>Customer</p>
+                      <p className="text-[10px] font-black">{quoteData.customerName}</p>
+                    </div>
+                  </div>
+                  <div className="px-8 py-5 grid grid-cols-2 gap-x-8 gap-y-4">
+                    {quoteBreakdown.map((item) => (
+                      <div key={item.label} className={`flex items-start gap-2 ${item.highlight ? "col-span-2" : ""}`}>
+                        <div className="w-px min-h-[28px] flex-shrink-0 mt-1" style={{background: `${colorMode === "brand" ? activeTheme.style?.mainAccent : activeTheme.hexAccent}35`}} />
+                        <div>
+                          <p className="text-[8px] uppercase tracking-widest" style={{ opacity: 0.3 }}>{item.label}</p>
+                          <p className={`${item.highlight ? "text-3xl" : "text-xl"} font-black leading-none`} style={colorMode === "brand" ? { color: activeTheme.style?.mainAccent } : {}}>{item.value}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="px-8 py-4" style={{borderTop: `1px solid ${colorMode === "brand" ? activeTheme.style?.mainAccent + '18' : activeTheme.hexAccent + '18'}`, background: `${colorMode === "brand" ? activeTheme.style?.mainAccent + '06' : activeTheme.hexAccent + '06'}`}}>
+                    <p className="text-[9px] italic" style={{ opacity: 0.35 }}>{quoteNote || DEFAULT_QUOTE_NOTE}</p>
+                    <div className="flex justify-between mt-2">
+                      <p className="text-[7px] uppercase tracking-[0.3em]" style={{ opacity: 0.15 }}>{businessProfile?.name || appName}</p>
+                      <p className="text-[7px] font-mono" style={{ opacity: 0.12 }}>{quoteNumber}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ELEGANT STYLE */}
+              {selectedCardStyle === "elegant" && (
+                <div className="w-full max-w-full p-6 sm:p-8">
+                  <div className="flex items-center gap-2 mb-6">
+                    <div className="flex-1 h-px" style={{background: `${colorMode === "brand" ? activeTheme.style?.mainAccent : activeTheme.hexAccent}30`}} />
+                    <span style={colorMode === "brand" ? { color: activeTheme.style?.tertiaryAccent, fontSize:9, opacity:0.65, letterSpacing:4 } : { color: activeTheme.hexAccent, fontSize:9, opacity:0.65, letterSpacing:4 }}>◆ ◆ ◆</span>
+                    <div className="flex-1 h-px" style={{background: `${colorMode === "brand" ? activeTheme.style?.mainAccent : activeTheme.hexAccent}30`}} />
+                  </div>
+                  <div className="flex flex-col items-center text-center space-y-2 pb-5">
+                    {appLogo && (
+                      <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden" style={{border: `1px solid ${colorMode === "brand" ? activeTheme.style?.mainAccent + '40' : activeTheme.hexAccent + '40'}`}}>
+                        <img src={appLogo} className="w-full h-full object-cover" alt="Logo" crossOrigin="anonymous" />
+                      </div>
+                    )}
+                    <h2 className="text-base sm:text-lg font-black uppercase tracking-[0.2em] break-words max-w-full" style={colorMode === "brand" ? { color: activeTheme.style?.mainAccent } : {}}>{businessProfile?.name || appName}</h2>
+                    {businessProfile?.tagline && <p className="text-[9px] italic break-words max-w-full" style={{ opacity: 0.45 }}>{businessProfile.tagline}</p>}
+                    <div className="flex items-center gap-3 justify-center flex-wrap opacity-45 text-[9px] sm:text-[10px]">
+                      {businessProfile?.phone && <span className="flex items-center gap-1"><Phone size={7} />{businessProfile.phone}</span>}
+                      {socials?.whatsapp && <span className="flex items-center gap-1"><MessageCircle size={7} />{socials.whatsapp}</span>}
+                      {businessProfile?.email && <span className="flex items-center gap-1"><Mail size={7} />{businessProfile.email}</span>}
+                    </div>
+                    {addrLandmark && <p className="text-[9px] sm:text-[10px] opacity-38 flex items-center justify-center gap-1 break-words max-w-full px-2"><MapPin size={7} className="shrink-0" /><span className="break-words">{addrLandmark}{addrStateCountry ? `, ${addrStateCountry}` : ""}</span></p>}
+                    {!addrLandmark && addrStateCountry && <p className="text-[9px] sm:text-[10px] opacity-28 text-center break-words max-w-full">{addrStateCountry}</p>}
+                    {!addrLandmark && !addrStateCountry && businessProfile?.address && <p className="text-[9px] sm:text-[10px] opacity-38 flex items-center justify-center gap-1 break-words max-w-full px-2"><MapPin size={7} className="shrink-0" /><span className="break-words">{businessProfile.address}</span></p>}
+                  </div>
+                  <div className="flex items-center gap-2 my-4">
+                    <div className="flex-1 h-px" style={{background: `${colorMode === "brand" ? activeTheme.style?.mainAccent : activeTheme.hexAccent}20`}} />
+                    <div className="w-1 h-1 rotate-45" style={{background: `${colorMode === "brand" ? activeTheme.style?.tertiaryAccent : activeTheme.hexAccent}60`}} />
+                    <div className="flex-1 h-px" style={{background: `${colorMode === "brand" ? activeTheme.style?.mainAccent : activeTheme.hexAccent}20`}} />
+                  </div>
+                  <div className="text-center py-2">
+                    <p className="text-[8px] sm:text-[9px] uppercase tracking-[0.25em]" style={{ opacity: 0.28 }}>{quoteData.complexity}</p>
+                    <p className="text-xs sm:text-sm font-black uppercase tracking-[0.1em] mt-0.5 break-words" style={colorMode === "brand" ? { color: activeTheme.style?.mainAccent } : {}}>{quoteData.garmentName} × {quoteData.quantity}</p>
+                    <div className="flex justify-center gap-3 sm:gap-6 mt-2 text-[8px] sm:text-[9px] flex-wrap" style={{ opacity: 0.35 }}>
+                      <span>{quoteData.customerName}</span>
+                      <span>·</span>
+                      <span>{quoteNumber}</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 sm:gap-x-8 gap-y-4 sm:gap-y-6 py-4">
+                    {quoteBreakdown.map((item) => (
+                      <div key={item.label} className={`text-center space-y-0.5 ${item.highlight ? "col-span-2" : ""}`}>
+                        <p className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest" style={{ opacity: 0.28 }}>{item.label}</p>
+                        <p className={`${item.highlight ? "text-2xl sm:text-3xl" : "text-lg sm:text-xl"} font-black break-words`} style={colorMode === "brand" ? { color: activeTheme.style?.tertiaryAccent } : { color: activeTheme.hexAccent }}>{item.value}</p>
+                        <div className="h-px w-6 sm:w-8 mx-auto" style={{background: `${colorMode === "brand" ? activeTheme.style?.mainAccent : activeTheme.hexAccent}30`}} />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2 mt-4 mb-3">
+                    <div className="flex-1 h-px" style={{background: `${colorMode === "brand" ? activeTheme.style?.mainAccent : activeTheme.hexAccent}18`}} />
+                    <div className="w-1 h-1 rotate-45" style={{background: `${colorMode === "brand" ? activeTheme.style?.tertiaryAccent : activeTheme.hexAccent}45`}} />
+                    <div className="flex-1 h-px" style={{background: `${colorMode === "brand" ? activeTheme.style?.mainAccent : activeTheme.hexAccent}18`}} />
+                  </div>
+                  <p className="text-[8px] sm:text-[9px] italic text-center px-2 sm:px-4 break-words" style={{ opacity: 0.28 }}>{quoteNote || DEFAULT_QUOTE_NOTE}</p>
+                  <div className="flex justify-between items-center mt-2 px-2">
+                    <p className="text-[6px] sm:text-[7px] uppercase tracking-[0.3em] break-words" style={{ opacity: 0.15 }}>{businessProfile?.name || appName}</p>
+                    <p className="text-[6px] sm:text-[7px]" style={{ opacity: 0.12 }}>Valid: {new Date(quoteData.validUntil).toLocaleDateString()}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ACTIONS */}
+        <div className="space-y-4">
+          <div>
+            <div className="flex items-center gap-2 px-1 mb-1.5">
+              <Quote size={14} className="text-primary" />
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Quote Note (Optional)</label>
+            </div>
+            <textarea
+              placeholder="Enter a custom note for this quote..."
+              value={quoteNote}
+              onChange={e => setQuoteNote(e.target.value)}
+              className="w-full text-sm rounded-2xl px-4 py-3 bg-card border border-border focus:border-primary/50 outline-none min-h-[80px]"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <button onClick={handleDownload} disabled={loading || sharing}
+              className="h-14 bg-primary text-primary-foreground rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 active:scale-[0.98] transition-all disabled:opacity-50">
+              {loading ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Saving…</> : <><Download size={18} /> Save To Device</>}
+            </button>
+            <button onClick={handlePrint} disabled={loading || sharing}
+              className="h-14 bg-card border border-border rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-muted transition-colors active:scale-[0.98] disabled:opacity-50">
+              {loading ? <><span className="w-4 h-4 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" /> Preparing…</> : <><Printer size={18} /> Print Card</>}
+            </button>
+          </div>
+
+          <button onClick={copyQuoteAsText}
+            className="w-full h-12 bg-card border border-border rounded-2xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-muted transition-colors active:scale-[0.98]">
+            <Copy size={14} /> Copy as Text
+          </button>
+
+          <button onClick={handleShareToCustomer} disabled={sharing || loading}
+            className="w-full h-14 bg-green-500/10 border border-green-500/30 text-green-600 dark:text-green-400 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-green-500/20 transition-colors active:scale-[0.98] disabled:opacity-50">
+            {sharing ? <><span className="w-4 h-4 border-2 border-green-500/40 border-t-green-500 rounded-full animate-spin" /> Preparing…</> : <><Share2 size={18} /> Share with {quoteData.customerName}</>}
+          </button>
+
+          <Button onClick={() => setLocation("/invite")} variant="outline"
+            className="w-full h-14 rounded-2xl border-primary/20 bg-primary/5 hover:bg-primary/10 font-bold text-primary transition-all">
+            <Users className="w-5 h-5 mr-2" /> Invite Another Tailor
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}

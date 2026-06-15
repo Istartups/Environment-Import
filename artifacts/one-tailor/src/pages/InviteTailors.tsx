@@ -38,7 +38,7 @@ export default function InviteTailors() {
       const result = await applyReferralCode(redeemCode.trim().toUpperCase());
       if (result.success) {
         setRedeemed(true);
-        toast({ title: "Success!", description: "Referral code applied. Complete 1 tool action to unlock rewards for your friend!" });
+        toast({ title: "Success!", description: "Referral code applied." });
         setRedeemCode("");
       } else {
         toast({ title: "Error", description: result.message, variant: "destructive" });
@@ -49,117 +49,101 @@ export default function InviteTailors() {
   };
 
   const shareLink = `${window.location.origin}?ref=${referralCode}`;
-  const shareMessage = `I'm using ${appDisplayName} to manage measurements, pricing, and customer records for my tailoring business.
-
-Try it free here:
-${shareLink}
-
-My Referral Code: ${referralCode}`;
+  const shareMessage = `I'm using ${appDisplayName} for my tailoring business. Try it free! ${shareLink} Code: ${referralCode}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(shareMessage);
     setCopied(true);
-    toast({ title: "Copied!", description: "Invitation message copied to clipboard." });
+    toast({ title: "Copied!" });
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(referralCode || "");
     setCopiedCode(true);
-    toast({ title: "Code Copied!", description: `Referral code ${referralCode} copied.` });
+    toast({ title: "Code Copied!" });
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
   const handleWhatsAppShare = () => {
-    const url = `https://wa.me/?text=${encodeURIComponent(shareMessage)}`;
-    window.open(url, "_blank");
+    window.open(`https://wa.me/?text=${encodeURIComponent(shareMessage)}`, "_blank");
   };
 
   const handleNativeShare = async () => {
     if (navigator.share) {
       try {
-        await navigator.share({
-          title: `Join ${appDisplayName}`,
-          text: shareMessage,
-          url: shareLink,
-        });
-      } catch (err) {
-        console.error("Error sharing:", err);
-      }
+        await navigator.share({ title: `Join ${appDisplayName}`, text: shareMessage, url: shareLink });
+      } catch (err) {}
     } else {
       handleCopy();
     }
   };
 
-  const card = "bg-card border border-border rounded-3xl p-6 shadow-sm";
-
   return (
     <div className="max-w-2xl mx-auto pb-20">
-      <PageHeader 
-        title="Earn Credit" 
-        subtitle="Grow the community & unlock rewards" 
-        backPath="/all-tools"
-      />
+      <PageHeader title="Invite & Earn" subtitle="Share your code" backPath="/all-tools" />
 
-      <div className="px-4 py-5 space-y-6">
+      <div className="px-4 py-4 space-y-4">
 
-        {/* Invited By */}
+        {/* Referred by banner - compact */}
         {referredBy && (
-          <div className="rounded-2xl px-4 py-3 flex items-center gap-3" style={{ background: "rgba(212,160,32,0.06)", border: "1px solid rgba(212,160,32,0.2)" }}>
-            <Sparkles size={16} style={{ color: "hsl(43,82%,55%)" }} />
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "hsl(43,82%,60%)" }}>Invited by {referredBy}</p>
-              <p className="text-[9px] text-muted-foreground">You joined via a referral link</p>
-            </div>
+          <div className="rounded-xl px-3 py-2 flex items-center gap-2 text-xs" style={{ background: "rgba(212,160,32,0.08)" }}>
+            <Sparkles size={12} style={{ color: "hsl(43,82%,55%)" }} />
+            <span>Invited by <strong>{referredBy}</strong></span>
           </div>
         )}
 
-        {/* Redeem Code Section */}
+        {/* Stats row - compact */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-card border border-border rounded-xl p-3 text-center">
+            <Users size={16} className="text-primary mx-auto mb-1" />
+            <p className="text-2xl font-black">{successfulInvites}</p>
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Invites</p>
+          </div>
+          <div className="bg-card border border-border rounded-xl p-3 text-center">
+            <Zap size={16} className="text-amber-500 mx-auto mb-1" />
+            <p className="text-2xl font-black">+{bonusUsageLimit}</p>
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Credits</p>
+          </div>
+        </div>
+
+        {/* Redeem code - compact */}
         {!redeemed && (
-          <div className={card + " space-y-3"}>
+          <div className="bg-card border border-border rounded-xl">
             {!showRedeem ? (
               <button
                 onClick={() => setShowRedeem(true)}
-                className="w-full flex items-center justify-between text-left"
+                className="w-full p-3 flex items-center justify-between"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <Gift size={18} className="text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold">Have a referral code?</p>
-                    <p className="text-[10px] text-muted-foreground">Enter it here to unlock rewards</p>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <Gift size={14} className="text-primary" />
+                  <span className="text-xs font-medium">Have a referral code?</span>
                 </div>
-                <ArrowRight size={16} className="text-muted-foreground" />
+                <ArrowRight size={14} className="text-muted-foreground" />
               </button>
             ) : (
-              <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="p-3 space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Gift size={16} className="text-primary" />
-                    <p className="text-sm font-bold">Redeem a Code</p>
-                  </div>
-                  <button onClick={() => { setShowRedeem(false); setRedeemCode(""); }} className="text-[10px] font-bold text-muted-foreground hover:text-foreground">Cancel</button>
+                  <span className="text-xs font-bold">Enter code</span>
+                  <button onClick={() => { setShowRedeem(false); setRedeemCode(""); }} className="text-[10px] text-muted-foreground">Cancel</button>
                 </div>
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="Enter referral code"
+                    placeholder="REFERRAL CODE"
                     value={redeemCode}
                     onChange={e => setRedeemCode(e.target.value.toUpperCase())}
-                    onKeyDown={e => { if (e.key === "Enter") handleRedeem(); }}
-                    className="flex-1 px-4 py-3 rounded-xl bg-muted/30 border border-border outline-none focus:border-primary text-sm font-bold tracking-wider uppercase placeholder:text-muted-foreground/50"
+                    onKeyDown={e => e.key === "Enter" && handleRedeem()}
+                    className="flex-1 px-3 py-2 rounded-lg bg-muted/30 border border-border outline-none focus:border-primary text-xs font-bold uppercase"
                     maxLength={20}
                     autoFocus
                   />
                   <button
                     onClick={handleRedeem}
                     disabled={!redeemCode.trim() || redeeming}
-                    className="px-5 py-3 bg-primary text-primary-foreground rounded-xl font-bold text-sm active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-bold text-xs active:scale-95 disabled:opacity-50"
                   >
-                    {redeeming ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                    Apply
+                    {redeeming ? <Loader2 size={12} className="animate-spin" /> : "Apply"}
                   </button>
                 </div>
               </div>
@@ -168,186 +152,87 @@ My Referral Code: ${referralCode}`;
         )}
 
         {redeemed && (
-          <div className="rounded-2xl px-4 py-3 flex items-center gap-3" style={{ background: "rgba(74,222,128,0.06)", border: "1px solid rgba(74,222,128,0.2)" }}>
-            <Check size={16} className="text-green-500" />
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-green-500">Code Redeemed!</p>
-              <p className="text-[9px] text-muted-foreground">Complete a tool action to activate rewards</p>
-            </div>
+          <div className="rounded-xl px-3 py-2 flex items-center gap-2 text-xs bg-green-500/10 border border-green-500/20">
+            <Check size={12} className="text-green-500" />
+            <span>Code redeemed! Complete a tool action to activate rewards</span>
           </div>
         )}
 
-        {/* Referral Status */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className={card + " flex flex-col items-center justify-center text-center py-8"}>
-            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-3">
-              <Users className="w-6 h-6 text-primary" />
+        {/* Share section - compact */}
+        <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+          <div className="flex items-center gap-2 justify-between">
+            <div className="flex-1 min-w-0">
+              <p className="text-[9px] font-bold text-primary uppercase tracking-wider">Your Code</p>
+              <p className="text-base font-black tracking-widest">{referralCode || "Loading..."}</p>
             </div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Successful Invites</p>
-            <p className="text-3xl font-black mt-1">{successfulInvites}</p>
-            {successfulInvites === 0 && (
-              <p className="text-[9px] text-muted-foreground mt-1">Start inviting to earn!</p>
-            )}
-          </div>
-          <div className={card + " flex flex-col items-center justify-center text-center py-8 relative overflow-hidden"}>
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center mb-3">
-              <Zap className="w-6 h-6 text-amber-500" />
-            </div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Bonus Credits</p>
-            <p className="text-3xl font-black mt-1">+{bonusUsageLimit}</p>
-          </div>
-        </div>
-
-        {/* Share Section */}
-        <div className={card + " space-y-6 relative overflow-hidden"}>
-          <div className="absolute top-0 right-0 p-8 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
-
-          <div className="relative space-y-4">
-            <div className="text-center space-y-2">
-              <h3 className="text-lg font-bold">Share your link</h3>
-              <p className="text-sm text-muted-foreground font-medium">
-                When a tailor uses your code and completes their first tool action, you both grow!
-              </p>
-            </div>
-
-            <div className="bg-muted/30 rounded-2xl p-4 border border-border space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-0.5">Your Referral Code</p>
-                  {referralCode ? (
-                    <p className="text-lg font-black tracking-widest truncate">{referralCode}</p>
-                  ) : (
-                    <div className="flex items-center gap-2 mt-1">
-                      <Loader2 size={16} className="animate-spin text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">Generating...</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-1">
-                  <button 
-                    onClick={handleCopyCode}
-                    disabled={!referralCode}
-                    className="rounded-xl h-10 px-3 text-xs font-bold border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary transition-colors"
-                  >
-                    {copiedCode ? <Check className="w-3.5 h-3.5" /> : "Code"}
-                  </button>
-                  <button 
-                    onClick={handleCopy}
-                    disabled={!referralCode}
-                    className="rounded-xl h-10 px-3 text-xs font-bold border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary transition-colors"
-                  >
-                    {copied ? <Check className="w-3.5 h-3.5" /> : "Share"}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 pt-2">
-              <button 
-                onClick={handleWhatsAppShare}
-                className="w-full h-14 rounded-2xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-sm shadow-lg shadow-[#25D366]/20 flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
-              >
-                <MessageCircle className="w-5 h-5" />
-                Invite on WhatsApp
+            <div className="flex gap-1">
+              <button onClick={handleCopyCode} className="rounded-lg px-3 py-1.5 text-xs font-bold bg-primary/5 border border-primary/20 text-primary">
+                {copiedCode ? <Check size={12} /> : "Copy"}
               </button>
-              <button 
-                onClick={handleNativeShare}
-                className="w-full h-14 rounded-2xl bg-card border border-border font-bold text-sm flex items-center justify-center gap-2 hover:bg-muted transition-colors active:scale-[0.98]"
-              >
-                <Share2 className="w-5 h-5" />
-                Share Invite Link
+              <button onClick={handleCopy} className="rounded-lg px-3 py-1.5 text-xs font-bold bg-primary/5 border border-primary/20 text-primary">
+                {copied ? <Check size={12} /> : "Share"}
               </button>
             </div>
           </div>
-        </div>
 
-        {/* Reward Levels */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 px-2">
-            <Trophy className="w-5 h-5 text-amber-500" />
-            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Community Rewards</h3>
-          </div>
-
-          <div className="space-y-3">
-            <RewardItem 
-              invites={1} 
-              title="Kickstart Bonus" 
-              reward="+5 Bonus Credits" 
-              active={successfulInvites >= 1} 
-              icon={<Zap className="w-5 h-5" />}
-              current={successfulInvites}
-            />
-            <RewardItem 
-              invites={3} 
-              title="Tailor Pro" 
-              reward="7 Days Premium Access" 
-              active={successfulInvites >= 3} 
-              icon={<Crown className="w-5 h-5" />}
-              current={successfulInvites}
-            />
-            <RewardItem 
-              invites={10} 
-              title="Community Ambassador" 
-              reward="30 Days Premium Access" 
-              active={successfulInvites >= 10} 
-              icon={<Gift className="w-5 h-5" />}
-              current={successfulInvites}
-            />
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={handleWhatsAppShare} className="py-2.5 rounded-xl bg-[#25D366] text-white text-xs font-bold flex items-center justify-center gap-1">
+              <MessageCircle size={12} /> WhatsApp
+            </button>
+            <button onClick={handleNativeShare} className="py-2.5 rounded-xl bg-card border border-border text-xs font-bold flex items-center justify-center gap-1">
+              <Share2 size={12} /> Invite
+            </button>
           </div>
         </div>
 
-        {/* How it works */}
-        <div className="rounded-3xl p-6 flex gap-4" style={{ background: "rgba(212,160,32,0.04)", border: "1px solid rgba(212,160,32,0.1)" }}>
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-            <Info className="w-5 h-5 text-primary" />
+        {/* Rewards - compact list */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-1 px-1">
+            <Trophy size={12} className="text-amber-500" />
+            <h3 className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Rewards</h3>
           </div>
-          <div className="space-y-1">
-            <p className="font-bold text-sm">How do invites count?</p>
-            <p className="text-xs text-muted-foreground leading-relaxed font-medium">
-              An invite is successful when the tailor you invited installs {appDisplayName}, enters your code, and successfully completes their first tool action.
-            </p>
+
+          <div className="space-y-1.5">
+            <RewardItemCompact invites={1} title="Kickstart" reward="+5 Credits" active={successfulInvites >= 1} current={successfulInvites} />
+            <RewardItemCompact invites={3} title="Tailor Pro" reward="7 Days Premium" active={successfulInvites >= 3} current={successfulInvites} />
+            <RewardItemCompact invites={10} title="Ambassador" reward="30 Days Premium" active={successfulInvites >= 10} current={successfulInvites} />
           </div>
+        </div>
+
+        {/* How it works - compact */}
+        <div className="rounded-xl px-3 py-2.5 flex gap-2" style={{ background: "rgba(212,160,32,0.04)" }}>
+          <Info size={12} className="text-primary shrink-0 mt-0.5" />
+          <p className="text-[10px] text-muted-foreground leading-relaxed">
+            Invite counts when your friend installs, enters your code, and completes their first tool action.
+          </p>
         </div>
       </div>
     </div>
   );
 }
 
-function RewardItem({ invites, title, reward, active, icon, current }: { invites: number, title: string, reward: string, active: boolean, icon: React.ReactNode, current: number }) {
+// Compact reward item component
+function RewardItemCompact({ invites, title, reward, active, current }: { invites: number; title: string; reward: string; active: boolean; current: number }) {
   const progress = Math.min(current, invites);
-  const percent = Math.round((progress / invites) * 100);
-  const remaining = invites - current;
+  const percent = (progress / invites) * 100;
 
   return (
-    <div className={`p-5 rounded-3xl border transition-all ${active ? "bg-primary/5 border-primary/30" : "bg-card border-border"}`}>
-      <div className="flex items-center gap-4 mb-3">
-        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-          {icon}
+    <div className={`flex items-center gap-2 p-2 rounded-xl border ${active ? "bg-primary/5 border-primary/30" : "bg-card border-border"}`}>
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${active ? "bg-primary text-white" : "bg-muted text-muted-foreground"}`}>
+        {active ? <Check size={14} /> : <Gift size={14} />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-xs">{title}</span>
+          <span className={`text-[9px] font-medium ${active ? "text-primary" : "text-muted-foreground"}`}>{reward}</span>
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="font-black text-sm">{title}</p>
-            {active && <Check className="w-4 h-4 text-primary" />}
+        <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
+            <div className={`h-full rounded-full transition-all ${active ? "bg-primary" : "bg-primary/40"}`} style={{ width: `${percent}%` }} />
           </div>
-          <p className={`text-xs font-bold ${active ? "text-primary" : "text-muted-foreground"}`}>{reward}</p>
-        </div>
-        <div className="text-right shrink-0">
-          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{active ? "Unlocked" : remaining > 0 ? `${remaining} to go` : "Complete"}</p>
-          <p className="text-sm font-black">{progress}/{invites}</p>
+          <span className="text-[9px] text-muted-foreground tabular-nums">{progress}/{invites}</span>
         </div>
       </div>
-      {/* Progress bar */}
-      <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
-        <div 
-          className={`h-full rounded-full transition-all duration-500 ${active ? "bg-primary" : "bg-primary/30"}`}
-          style={{ width: `${percent}%` }}
-        />
-      </div>
-      {!active && remaining > 0 && (
-        <p className="text-[9px] text-muted-foreground mt-1.5">
-          Invite {remaining} more tailor{remaining !== 1 ? "s" : ""} to unlock
-        </p>
-      )}
     </div>
   );
 }

@@ -80,18 +80,17 @@ function NavItem({ label, icon: Icon, href, isActive }: { label: string; icon: a
     <Link href={href}>
       <div
         className={cn(
-          "group flex items-center gap-3 mx-2 px-3 py-2 rounded-xl text-[13px] font-semibold cursor-pointer transition-all",
+          "group flex items-center gap-3 mx-2 px-3 py-2 rounded-xl text-[13px] font-semibold cursor-pointer transition-all duration-200",
           isActive
-            ? "text-amber-400"
-            : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-white/5"
+            ? "text-amber-400 bg-amber-500/15"
+            : "text-sidebar-foreground hover:text-amber-400 hover:bg-white/5"
         )}
-        style={isActive ? { background: "rgba(212,160,32,0.10)" } : {}}
       >
         <div className={cn(
-          "w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-all",
-          isActive ? "bg-amber-500/20" : "bg-transparent group-hover:bg-white/5"
+          "w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-all duration-200",
+          isActive ? "bg-amber-500/20" : "bg-transparent group-hover:bg-amber-500/10"
         )}>
-          <Icon size={14} className={isActive ? "text-amber-400" : ""} />
+          <Icon size={14} className={isActive ? "text-amber-400" : "text-sidebar-foreground group-hover:text-amber-400"} />
         </div>
         <span className="flex-1">{label}</span>
         {isActive && <div className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />}
@@ -111,7 +110,7 @@ function SidebarContent({ location, healthStatus, theme, toggleTheme, handleLogo
   return (
     <>
       {/* Brand */}
-      <div className="px-4 pt-5 pb-4 border-b border-sidebar-border">
+      <div className="px-4 pt-5 pb-4 border-b border-sidebar-border/50">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(212,160,32,0.15)" }}>
@@ -120,7 +119,7 @@ function SidebarContent({ location, healthStatus, theme, toggleTheme, handleLogo
             <div>
               <p className="font-black text-sm leading-none" style={{ color: "hsl(43,82%,55%)" }}>OnePWA</p>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <p className="text-[10px] font-medium leading-none" style={{ color: "var(--sidebar-foreground)", opacity: 0.4 }}>Admin Portal</p>
+                <p className="text-[10px] font-medium leading-none text-sidebar-foreground/60">Admin Portal</p>
                 <span
                   title={
                     healthStatus === "healthy" ? "System healthy"
@@ -131,8 +130,8 @@ function SidebarContent({ location, healthStatus, theme, toggleTheme, handleLogo
                   className={cn(
                     "w-1.5 h-1.5 rounded-full shrink-0",
                     healthStatus === "healthy" ? "bg-emerald-500"
-                    : healthStatus === "warning" ? "bg-amber-400"
-                    : healthStatus === "error" ? "bg-red-500"
+                    : healthStatus === "warning" ? "bg-amber-400 animate-pulse"
+                    : healthStatus === "error" ? "bg-red-500 animate-pulse"
                     : "bg-slate-400 animate-pulse"
                   )}
                 />
@@ -140,18 +139,18 @@ function SidebarContent({ location, healthStatus, theme, toggleTheme, handleLogo
             </div>
           </div>
           {onClose && (
-            <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors">
-              <X size={15} style={{ color: "var(--sidebar-foreground)", opacity: 0.5 }} />
+            <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition-all duration-200 active:scale-95">
+              <X size={15} className="text-sidebar-foreground/60 hover:text-sidebar-foreground" />
             </button>
           )}
         </div>
       </div>
 
-      {/* Nav */}
+      {/* Nav - NOW VISIBLE */}
       <nav className="flex-1 py-3 overflow-y-auto space-y-0.5">
         {NAV_GROUPS.map((group) => (
-          <div key={group.label} className="mb-1">
-            <p className="px-5 pt-3 pb-1 text-[9px] font-black uppercase tracking-[0.18em] opacity-30" style={{ color: "var(--sidebar-foreground)" }}>
+          <div key={group.label} className="mb-2">
+            <p className="px-5 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.15em] text-sidebar-foreground/50">
               {group.label}
             </p>
             {group.items.map((item) => (
@@ -169,11 +168,10 @@ function SidebarContent({ location, healthStatus, theme, toggleTheme, handleLogo
       </nav>
 
       {/* Footer */}
-      <div className="px-2 py-3 border-t border-sidebar-border space-y-0.5">
+      <div className="px-2 py-3 border-t border-sidebar-border/50 space-y-1">
         <button
           onClick={toggleTheme}
-          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold transition-colors hover:bg-white/5"
-          style={{ color: "var(--sidebar-foreground)", opacity: 0.6 }}
+          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 hover:bg-white/5 active:scale-95 text-sidebar-foreground"
         >
           <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-white/5">
             {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
@@ -182,7 +180,7 @@ function SidebarContent({ location, healthStatus, theme, toggleTheme, handleLogo
         </button>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold text-red-400 hover:bg-red-500/10 transition-colors"
+          className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 hover:bg-red-500/10 active:scale-95 text-red-400"
         >
           <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-red-500/10">
             <LogOut size={14} className="text-red-400" />
@@ -244,12 +242,12 @@ export default function Dashboard({ children }: { children: React.ReactNode }) {
 
       {/* Mobile overlay */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden" onClick={() => setMobileMenuOpen(false)} />
+        <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden animate-in fade-in duration-200" onClick={() => setMobileMenuOpen(false)} />
       )}
 
       {/* Mobile sidebar */}
       {mobileMenuOpen && (
-        <aside className="fixed inset-y-0 left-0 z-50 w-56 flex flex-col md:hidden" style={sidebarStyle}>
+        <aside className="fixed inset-y-0 left-0 z-50 w-56 flex flex-col md:hidden shadow-2xl animate-in slide-in-from-left duration-300" style={sidebarStyle}>
           <SidebarContent
             location={location}
             healthStatus={healthStatus}
@@ -268,14 +266,14 @@ export default function Dashboard({ children }: { children: React.ReactNode }) {
         <header className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-background/80 backdrop-blur-sm shrink-0">
           <div className="flex items-center gap-3">
             <button
-              className="md:hidden p-1.5 rounded-lg hover:bg-muted transition-colors"
+              className="md:hidden p-1.5 rounded-lg hover:bg-muted transition-all duration-200"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               <Menu size={18} />
             </button>
             <div className="hidden md:flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="font-medium opacity-50">Admin</span>
-              <ChevronRight size={12} className="opacity-30" />
+              <span className="font-medium">Admin</span>
+              <ChevronRight size={12} className="opacity-50" />
               <span className="font-bold capitalize text-foreground">{currentPage}</span>
             </div>
           </div>
@@ -283,13 +281,13 @@ export default function Dashboard({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-1.5">
             <button
               onClick={toggleTheme}
-              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted transition-all duration-200 text-muted-foreground"
             >
               {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
             </button>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200"
             >
               <LogOut size={13} /> Logout
             </button>

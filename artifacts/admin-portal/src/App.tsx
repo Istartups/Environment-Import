@@ -14,6 +14,7 @@ import Broadcast from "./pages/Broadcast";
 import DeployGuide from "./pages/DeployGuide";
 import Accounts from "./pages/Accounts";
 import CRM from "./pages/CRM";
+import AgentTasks from "./pages/agentasks";
 import SystemLogs from "./pages/SystemLogs";
 import ReferralAnalytics from "./pages/ReferralAnalytics";
 import { Toaster } from "./components/ui/toaster";
@@ -60,6 +61,9 @@ export default function App() {
         </Route>
         <Route path="/crm">
           <CRMRoute><CRM /></CRMRoute>
+        </Route>
+        <Route path="/tasks">
+          <CRMRoute><AgentTasks /></CRMRoute>
         </Route>
         <Route path="/payment">
           <PrivateRoute><Dashboard><CombinedPayment /></Dashboard></PrivateRoute>

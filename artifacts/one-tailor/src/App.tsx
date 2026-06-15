@@ -35,6 +35,7 @@ const TailorNotes                 = lazy(() => import("@/pages/TailorNotes"));
 const MessageCenter               = lazy(() => import("@/pages/MessageCenter"));
 const BrandKit                    = lazy(() => import("@/pages/brandkit"));
 const DevicePlans                 = lazy(() => import("@/pages/DevicePlans"));
+const QuoteCardGenerator          = lazy(() => import("@/pages/QuoteCardGenerator"));
 const NotFound                    = lazy(() => import("@/pages/not-found"));
 
 function LoadingFallback() {
@@ -86,6 +87,7 @@ function Router() {
         <Route path="/message-center"     component={MessageCenter} />
         <Route path="/brand-kit"          component={BrandKit} />
         <Route path="/device-plans"       component={DevicePlans} />
+        <Route path="/quote-card"         component={QuoteCardGenerator} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>

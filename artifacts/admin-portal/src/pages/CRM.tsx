@@ -46,7 +46,7 @@ interface Interaction {
   createdAt: string;
 }
 
-interface Template { id: number; name: string; content: string; createdAt: string; }
+interface Template { id: number; name: string; content: string; category?: string; createdAt: string; usageCount?: number; }
 interface Agent { id: number; username: string; name: string; phone: string | null; isActive: boolean; createdAt: string; }
 interface Task { id: number; userId: number; taskType: string; status: string; triggerAt: string; notes: string | null; user: { email: string | null; businessName: string | null; phone: string | null; whatsappNumber?: string | null } | null; }
 interface Stats { totalLeads: number; newToday: number; hotLeads: number; pendingFollowUps: number; converted: number; conversionRate: number; }
@@ -280,6 +280,17 @@ function WAComposer({
 
       {/* Message editor */}
       <div className="relative">
+        <div className="flex gap-1 mb-1">
+          {["{{name}}", "{{business}}", "{{phone}}"].map(varName => (
+            <button
+              key={varName}
+              onClick={() => setComposerMsg(prev => prev + varName)}
+              className="px-2 py-0.5 rounded-md text-[9px] font-mono bg-muted/30 hover:bg-muted/50 text-muted-foreground"
+            >
+              {varName}
+            </button>
+          ))}
+        </div>
         <textarea
           rows={5}
           value={composerMsg}
@@ -297,6 +308,13 @@ function WAComposer({
           </span>
         )}
       </div>
+
+      {composerMsg && (
+        <div className="p-2 rounded-lg bg-muted/20 text-xs text-muted-foreground">
+          <p className="text-[9px] font-bold text-green-400 mb-1">Preview:</p>
+          <p className="whitespace-pre-wrap break-words">{composerMsg}</p>
+        </div>
+      )}
 
       {/* Action buttons */}
       <div className="flex gap-2">
@@ -341,13 +359,7 @@ function WAComposer({
 
 // ─── Email Composer ───────────────────────────────────────────────────────────
 
-const EMAIL_TEMPLATES = [
-  { id: 1, name: "Order Ready",          subject: "Your Order is Ready for Pickup!",  body: "Dear {{name}},\n\nWe are delighted to inform you that your order is ready for pickup.\n\nPlease visit us at your earliest convenience.\n\nKind regards,\nOneTailor Team" },
-  { id: 2, name: "Appt. Confirmed",      subject: "Appointment Confirmed",             body: "Dear {{name}},\n\nYour appointment with us has been confirmed.\n\nWe look forward to seeing you soon!\n\nKind regards,\nOneTailor Team" },
-  { id: 3, name: "Payment Received",     subject: "Payment Received – Thank You!",    body: "Dear {{name}},\n\nWe have received your payment. Thank you so much for your business!\n\nPlease keep this email for your records.\n\nKind regards,\nOneTailor Team" },
-];
-
-function buildEmailBody(tpl: typeof EMAIL_TEMPLATES[0], lead: Lead) {
+function buildEmailBody(tpl: { body: string }, lead: Lead) {
   const name = lead.profile?.name || lead.businessName || "there";
   return tpl.body.replace(/\{\{name\}\}/g, name);
 }
@@ -369,11 +381,8 @@ function EmailComposer({
   const [sent, setSent]             = useState(false);
   const [error, setError]           = useState<string | null>(null);
 
-  // Use DB templates (filtered by "📧 " prefix) when available, else fall back to hardcoded
-  const dbEmailTpls = (templates ?? []).filter(t => t.name.startsWith("📧 "));
-  const resolvedEmailTpls = dbEmailTpls.length > 0
-    ? dbEmailTpls.map(t => ({ id: t.id, name: t.name.replace("📧 ", ""), subject: t.name.replace("📧 ", ""), body: t.content }))
-    : EMAIL_TEMPLATES;
+  const dbEmailTpls = (templates ?? []).filter(t => t.name.startsWith("📧 ") || t.category === "email");
+  const resolvedEmailTpls = dbEmailTpls.map(t => ({ id: t.id, name: t.name.replace("📧 ", ""), subject: t.name.replace("📧 ", ""), body: t.content }));
 
   const handleSelectTpl = (id: number | "") => {
     setTplId(id);
@@ -454,6 +463,13 @@ function EmailComposer({
         )}
       </div>
 
+      {body && (
+        <div className="p-2 rounded-lg bg-muted/20 text-xs text-muted-foreground">
+          <p className="text-[9px] font-bold text-blue-400 mb-1">Preview:</p>
+          <p className="whitespace-pre-wrap break-words">{body}</p>
+        </div>
+      )}
+
       {error && <p className="text-[10px] text-red-400 flex items-center gap-1"><AlertCircle size={10} /> {error}</p>}
 
       <button
@@ -478,13 +494,7 @@ function EmailComposer({
 
 // ─── SMS / Phone Composer ─────────────────────────────────────────────────────
 
-const SMS_TEMPLATES = [
-  { id: 1, name: "Order Ready",         body: "Hi {{name}}, your order is ready for pickup! Please come in at your earliest convenience. Thank you for choosing us!" },
-  { id: 2, name: "Appt. Reminder",      body: "Hi {{name}}, reminder: your appointment is coming up. Please confirm or call us to reschedule. Thank you!" },
-  { id: 3, name: "Thank You",           body: "Hi {{name}}, thank you for choosing us! Your order is in progress and we will notify you when it is ready!" },
-];
-
-function buildSMSBody(tpl: typeof SMS_TEMPLATES[0], lead: Lead) {
+function buildSMSBody(tpl: { body: string }, lead: Lead) {
   const name = lead.profile?.name || lead.businessName || "there";
   return tpl.body.replace(/\{\{name\}\}/g, name);
 }
@@ -504,11 +514,8 @@ function SMSComposer({
   const [copied, setCopied]   = useState(false);
   const copyTimer             = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Use DB templates (filtered by "📱 " prefix) when available, else fall back to hardcoded
-  const dbSmsTpls = (templates ?? []).filter(t => t.name.startsWith("📱 "));
-  const resolvedSmsTpls = dbSmsTpls.length > 0
-    ? dbSmsTpls.map(t => ({ id: t.id, name: t.name.replace("📱 ", ""), body: t.content }))
-    : SMS_TEMPLATES;
+  const dbSmsTpls = (templates ?? []).filter(t => t.name.startsWith("📱 ") || t.category === "sms");
+  const resolvedSmsTpls = dbSmsTpls.map(t => ({ id: t.id, name: t.name.replace("📱 ", ""), body: t.content }));
 
   const handleSelectTpl = (id: number | "") => {
     setTplId(id);
@@ -595,10 +602,17 @@ function SMSComposer({
           placeholder="Pick a template above or type your SMS (max 159 chars). Supports {{name}}."
           className="w-full px-3 py-2.5 rounded-xl text-xs bg-background border border-border outline-none resize-none focus:border-amber-500/40 transition-colors leading-relaxed"
         />
-        <span className={`absolute bottom-2 right-3 text-[10px] pointer-events-none ${msg.length > 140 ? "text-amber-400" : "text-muted-foreground/50"}`}>
-          {msg.length}/159
+        <span className={`absolute bottom-2 right-3 text-[10px] pointer-events-none ${msg.length > 159 ? "text-red-400" : msg.length > 140 ? "text-amber-400" : "text-muted-foreground/50"}`}>
+          {msg.length}/159 {msg.length > 159 && "— Exceeds SMS limit!"}
         </span>
       </div>
+
+      {msg && (
+        <div className="p-2 rounded-lg bg-muted/20 text-xs text-muted-foreground">
+          <p className="text-[9px] font-bold text-amber-400 mb-1">Preview:</p>
+          <p className="whitespace-pre-wrap break-words">{msg}</p>
+        </div>
+      )}
 
       <div className="flex gap-2">
         <button
@@ -1332,6 +1346,7 @@ function TemplatesTab() {
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [channelTab, setChannelTab] = useState<ChannelTab>("whatsapp");
+  const [templateSearch, setTemplateSearch] = useState("");
 
   const meta = CHANNEL_META[channelTab];
 
@@ -1346,10 +1361,15 @@ function TemplatesTab() {
   useEffect(() => { fetchTemplates(); }, []);
 
   const channelTemplates = templates.filter(t => {
-    if (channelTab === "email") return t.name.startsWith("📧 ");
-    if (channelTab === "sms")   return t.name.startsWith("📱 ");
-    return !t.name.startsWith("📧 ") && !t.name.startsWith("📱 ");
+    if (channelTab === "email") return t.name.startsWith("📧 ") || t.category === "email";
+    if (channelTab === "sms")   return t.name.startsWith("📱 ") || t.category === "sms";
+    return (!t.name.startsWith("📧 ") && !t.name.startsWith("📱 ")) || t.category === "whatsapp";
   });
+
+  const filteredTemplates = channelTemplates.filter(t =>
+    t.name.toLowerCase().includes(templateSearch.toLowerCase()) ||
+    t.content.toLowerCase().includes(templateSearch.toLowerCase())
+  );
 
   const openEdit = (t: Template) => { setEditingId(t.id); setName(t.name); setContent(t.content); setShowForm(true); };
   const openNew = () => { setEditingId(null); setName(meta.prefix); setContent(""); setShowForm(true); };
@@ -1359,9 +1379,10 @@ function TemplatesTab() {
     if (meta.maxChars && content.length > meta.maxChars) return;
     setSaving(true);
     try {
+      const body = { name: name.trim(), content: content.trim(), category: channelTab };
       const res = editingId
-        ? await authFetch(`/api/crm/templates/${editingId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, content }) })
-        : await authFetch("/api/crm/templates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, content }) });
+        ? await authFetch(`/api/crm/templates/${editingId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+        : await authFetch("/api/crm/templates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (res.ok) { setShowForm(false); fetchTemplates(); }
     } finally { setSaving(false); }
   };
@@ -1386,6 +1407,17 @@ function TemplatesTab() {
             {CHANNEL_META[ch].icon} {CHANNEL_META[ch].label}
           </button>
         ))}
+      </div>
+
+      <div className="relative mb-4">
+        <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="text"
+          placeholder={`Search ${meta.label} templates...`}
+          value={templateSearch}
+          onChange={e => setTemplateSearch(e.target.value)}
+          className="w-full pl-8 pr-3 py-2 rounded-xl text-xs bg-background border border-border outline-none focus:border-primary/50"
+        />
       </div>
 
       <div className="flex items-start justify-between mb-5 gap-4">
@@ -1414,8 +1446,8 @@ function TemplatesTab() {
               className="w-full px-4 py-2.5 rounded-xl text-sm bg-background border border-border outline-none resize-none focus:border-primary/50"
             />
             {meta.maxChars && (
-              <span className={`absolute bottom-3 right-3 text-[10px] font-bold ${content.length > (meta.maxChars - 20) ? "text-red-400" : "text-muted-foreground/50"}`}>
-                {content.length}/{meta.maxChars}
+              <span className={`absolute bottom-3 right-3 text-[10px] font-bold ${content.length > 159 ? "text-red-400" : content.length > 140 ? "text-amber-400" : "text-muted-foreground/50"}`}>
+                {content.length}/{meta.maxChars} {content.length > 159 && "— Exceeds SMS limit!"}
               </span>
             )}
           </div>
@@ -1432,28 +1464,30 @@ function TemplatesTab() {
 
       {loading ? (
         <div className="flex justify-center py-16"><div className="w-6 h-6 border-2 border-t-transparent border-primary rounded-full animate-spin" /></div>
-      ) : channelTemplates.length === 0 ? (
+      ) : filteredTemplates.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <MessageSquare size={32} className="mx-auto mb-3 opacity-30" />
-          <p className="text-sm">{meta.emptyMsg}</p>
-          {isAdmin() && (
+          <p className="text-sm">{templateSearch ? "No templates match your search." : meta.emptyMsg}</p>
+          {isAdmin() && !templateSearch && (
             <button onClick={openNew} className="mt-3 text-xs font-bold text-primary hover:underline">+ Create Template</button>
           )}
         </div>
       ) : (
         <div className="space-y-3">
-          {channelTemplates.map(t => (
+          {filteredTemplates.map(t => (
             <div key={t.id} className="rounded-2xl p-4" style={{ background: "hsl(218,44%,10%)", border: "1px solid hsl(218,38%,18%)" }}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-sm text-primary">{t.name}</p>
                   <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed whitespace-pre-wrap">{t.content}</p>
                   {channelTab === "sms" && (
-                    <p className={`text-[10px] mt-1 font-bold ${t.content.length > 159 ? "text-red-400" : "text-muted-foreground/50"}`}>
-                      {t.content.length} chars{t.content.length > 159 ? " — over limit!" : ""}
+                    <p className={`text-[10px] mt-1 font-bold ${t.content.length > 159 ? "text-red-400" : t.content.length > 140 ? "text-amber-400" : "text-muted-foreground/50"}`}>
+                      {t.content.length} chars{t.content.length > 159 ? " — Exceeds SMS limit!" : t.content.length > 140 ? " — Nearing limit" : ""}
                     </p>
                   )}
-                  <p className="text-[10px] text-muted-foreground/50 mt-2">Updated {relDate(t.createdAt)}</p>
+                  <p className="text-[10px] text-muted-foreground/50 mt-2">Updated {relDate(t.createdAt)}
+                    {t.usageCount > 0 && <> · Used {t.usageCount} times</>}
+                  </p>
                 </div>
                 {isAdmin() && (
                   <div className="flex gap-1.5 shrink-0">
